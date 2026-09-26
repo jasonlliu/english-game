@@ -29,7 +29,8 @@ SITE_FILE = re.compile(r'^site/(?:index\.html|favicon\.svg|release\.json|assets/
 LOCATIONS = '''# Managed by english-game; inherits the existing TLS server's access password.
 location = /english-game { return 308 /english-game/$is_args$args; }
 location = /english-game/ {
-  alias /opt/english-game/app/site/index.html;
+  alias /opt/english-game/app/site/;
+  index index.html;
   add_header Cache-Control "no-cache" always;
   add_header X-Content-Type-Options nosniff always;
   add_header Referrer-Policy strict-origin-when-cross-origin always;
@@ -57,6 +58,12 @@ location ^~ /english-game/assets/ {
 }
 location ^~ /english-game/ { return 404; }
 '''
+# The first staging template used a file alias on a directory URI; nginx's
+# index module appended index.html again. Only this exact old template may be
+# upgraded automatically; unrelated/local route edits still stop activation.
+LEGACY_LOCATIONS = LOCATIONS.replace(
+    '  alias /opt/english-game/app/site/;\n  index index.html;',
+    '  alias /opt/english-game/app/site/index.html;', 1)
 
 
 def check(condition, message):
@@ -220,7 +227,8 @@ def activate(release):
     config_before = NGINX_CONFIG.read_bytes()
     config_after = nginx_plan(config_before.decode()).encode()
     snippet_before = NGINX_LOCATIONS.read_bytes() if NGINX_LOCATIONS.exists() else None
-    check(snippet_before is None or snippet_before == LOCATIONS.encode(), 'Existing game route has local changes')
+    check(snippet_before in (None, LOCATIONS.encode(), LEGACY_LOCATIONS.encode()),
+          'Existing game route has local changes')
     run(['nginx', '-t'])
     run(['curl', '--fail', '--silent', '--max-time', '15', 'http://127.0.0.1:3001/'])
     # Preserve evidence before the first mutation. A hard kill can be inspected
