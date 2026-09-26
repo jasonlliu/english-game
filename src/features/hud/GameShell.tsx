@@ -76,7 +76,11 @@ export default function GameShell({ game }: { game: AdventureController }) {
       className={`game-shell ${insideTemple ? 'inside-temple' : ''}`}
       style={{ '--region-color': region.color } as CSSProperties}
     >
-      <main className="world-stage" inert={isModal}>
+      <main
+        className="world-stage"
+        inert={isModal}
+        onContextMenu={(event) => event.preventDefault()}
+      >
         {insideTemple ? (
           <IndoorScene
             key={`${mode}-${regionId}`}

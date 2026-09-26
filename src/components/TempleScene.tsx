@@ -207,7 +207,7 @@ export default function TempleScene(props: Props) {
       };
       const keyUp = (e: KeyboardEvent) => keys.delete(e.code);
       const down = (e: PointerEvent) => {
-        if (latest.current.paused) return;
+        if (latest.current.paused || e.button !== 0) return;
         drag = {
           x: e.clientX,
           y: e.clientY,
