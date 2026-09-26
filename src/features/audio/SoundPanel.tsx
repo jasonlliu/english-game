@@ -6,9 +6,11 @@ import { statusLabels } from './statusLabels';
 export default function SoundPanel({
   audio,
   close,
+  embedded = false,
 }: {
   audio: GameAudioController;
   close(): void;
+  embedded?: boolean;
 }) {
   const { preferences, status } = useSyncExternalStore(
     audio.subscribe,
@@ -17,8 +19,8 @@ export default function SoundPanel({
   );
   const closeButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    closeButton.current?.focus();
-  }, []);
+    if (!embedded) closeButton.current?.focus();
+  }, [embedded]);
   function toggleMute() {
     audio.setPreferences({ muted: !preferences.muted });
     if (preferences.muted) void audio.unlock();
@@ -28,6 +30,7 @@ export default function SoundPanel({
       className="sound-panel"
       aria-label="旅途声音"
       onBlur={(event) => {
+        if (embedded) return;
         if (!event.currentTarget.parentElement?.contains(event.relatedTarget as Node | null))
           close();
       }}

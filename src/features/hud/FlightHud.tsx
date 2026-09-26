@@ -10,7 +10,10 @@ export default function FlightHud({ game }: { game: AdventureController }) {
     telemetry.flight.getSnapshot,
   );
   return (
-    <div className={`flight-hud ${flight.flying ? 'airborne' : ''}`} inert={isModal}>
+    <div
+      className={`flight-hud ${flight.flying ? 'airborne' : ''} ${canFly ? 'can-fly' : ''}`}
+      inert={isModal}
+    >
       <button
         className="flight-toggle"
         onClick={toggleFlight}

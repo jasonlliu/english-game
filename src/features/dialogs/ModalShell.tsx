@@ -2,7 +2,10 @@ import { X } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 import type { Panel } from '../../app/presentation';
 import type { PetId } from '../../game/adventure';
+import '../../styles/mobileDialogs.css';
 const labels: Record<Exclude<Panel, null>, string> = {
+  menu: '冒险菜单',
+  sound: '声音设置',
   checkin: '确认今日打卡',
   journal: '我的伙伴',
   expedition: '原野探险手记',
@@ -24,6 +27,7 @@ export default function ModalShell({
   children: ReactNode;
 }) {
   const container = useRef<HTMLDivElement>(null),
+    content = useRef<HTMLDivElement>(null),
     close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
@@ -59,9 +63,11 @@ export default function ModalShell({
   }, []);
   useEffect(() => {
     container.current?.scrollTo({ top: 0 });
+    content.current?.scrollTo({ top: 0 });
     container.current?.querySelector<HTMLElement>('button')?.focus();
   }, [panel, reward]);
   const rewardLayout = reward || ['checkin', 'treasure', 'capture', 'relic'].includes(panel || '');
+  const label = reward ? '冒险奖励' : panel ? labels[panel] : '冒险';
   return (
     <div
       className="modal-backdrop"
@@ -70,16 +76,21 @@ export default function ModalShell({
       }}
     >
       <div
-        className={`modal ${rewardLayout ? 'reward-modal' : ''} ${panel === 'map' ? 'travel-modal' : ''} ${panel === 'expedition' ? 'expedition-modal' : ''}`}
+        className={`modal ${rewardLayout ? 'reward-modal' : ''} ${panel === 'map' ? 'travel-modal' : ''} ${panel === 'expedition' ? 'expedition-modal' : ''} ${panel === 'menu' ? 'menu-modal' : ''}`}
         role="dialog"
         aria-modal="true"
-        aria-label={reward ? '冒险奖励' : panel ? labels[panel] : '冒险'}
+        aria-label={label}
         ref={container}
       >
-        <button className="modal-close" aria-label="关闭窗口" onClick={onClose}>
-          <X size={20} />
-        </button>
-        {children}
+        <div className="modal-toolbar">
+          <span>{label}</span>
+          <button className="modal-close" aria-label="关闭窗口" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+        <div className="modal-content" ref={content}>
+          {children}
+        </div>
       </div>
     </div>
   );

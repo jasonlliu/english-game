@@ -14,8 +14,7 @@ import {
 } from '../game/flight';
 import { createLocomotionState, stepLocomotion, stepFollower } from '../game/locomotion';
 import RunControl from './RunControl';
-import DiscoveryPrompt from './DiscoveryPrompt';
-import FieldActivityHud from './FieldActivityHud';
+import WorldContextActions from './WorldContextActions';
 import {
   createFieldActivityRuntime,
   EMPTY_FIELD_VIEW,
@@ -1388,43 +1387,22 @@ export default function WorldScene(props: WorldSceneProps) {
           正在前往<span className="world-auto-walk-hint"> · Shift 奔跑 · 方向键取消</span>
         </div>
       )}
-      {!props.paused && !flightControls.flying && props.field && props.region === 'meadow' && (
-        <FieldActivityHud
-          view={fieldView}
-          field={props.field}
-          start={() => fieldStartRef.current?.()}
-          cancel={() => fieldCancelRef.current?.()}
+      {!props.paused && !flightControls.flying && (
+        <WorldContextActions
+          field={props.region === 'meadow' ? props.field : undefined}
+          fieldView={fieldView}
+          startRace={() => fieldStartRef.current?.()}
+          cancelRace={() => fieldCancelRef.current?.()}
           observe={(held) => fieldObserveRef.current?.(held)}
+          discovery={props.onDiscoveryInteract ? discoveryProximity : undefined}
+          companion={props.companionId !== null}
+          onDiscovery={() => discoveryInteractRef.current?.()}
+          nearWild={nearWild && !!props.wildPetId}
+          canCapture={!!props.canCapture}
+          onCapture={() => captureRef.current?.()}
+          nearTemple={nearTemple}
+          onEnterTemple={() => enterTempleRef.current?.()}
         />
-      )}
-      {!props.paused &&
-        !flightControls.flying &&
-        fieldView.race?.status !== 'running' &&
-        props.onDiscoveryInteract && (
-          <DiscoveryPrompt
-            proximity={discoveryProximity}
-            companion={props.companionId !== null}
-            onInteract={() => discoveryInteractRef.current?.()}
-          />
-        )}
-      {nearWild && props.wildPetId && !props.paused && !flightControls.flying && (
-        <div className="wild-bond-prompt">
-          {props.canCapture ? (
-            <button className="wild-bond-button" onClick={() => captureRef.current?.()}>
-              <span>与伙伴建立羁绊</span>
-              <kbd>E</kbd>
-            </button>
-          ) : (
-            <span>收集三枚符印后，可以与这里的伙伴建立羁绊</span>
-          )}
-        </div>
-      )}
-      {nearTemple && !props.paused && !flightControls.flying && (
-        <div className="temple-enter-prompt">
-          <button onClick={() => enterTempleRef.current?.()}>
-            进入神庙 <kbd>{nearWild && props.canCapture ? '↗' : 'E'}</kbd>
-          </button>
-        </div>
       )}
       <div
         className="world-touch-controls"

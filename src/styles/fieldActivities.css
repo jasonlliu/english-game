@@ -117,49 +117,103 @@
 .game-shell:has(.field-activity-hud.is-racing) .flight-hud {
   display: none;
 }
-@media (max-width: 760px) {
-  .field-activity-hud {
-    top: 280px;
-    width: 310px;
-    padding: 10px 13px;
+/* Touch screens keep nearby activities in a single row above the play area. */
+.field-mobile-label {
+  display: none;
+}
+@media (max-width: 760px), (max-width: 1000px) and (max-height: 500px) {
+  .world-context-actions .field-activity-hud {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    padding: 0;
+    background: none;
+    border: 0;
+    box-shadow: none;
   }
-  .field-activity-hud strong {
-    font-size: 13px;
-  }
-  .field-race-invite > div > small {
+  .field-activity-hud .field-desktop-label,
+  .field-activity-hud .field-race-invite > div,
+  .field-activity-hud .field-species-icon,
+  .field-activity-hud .field-observation strong,
+  .field-activity-hud .field-observation p,
+  .field-activity-hud .field-observation.is-recorded,
+  .field-activity-hud:has(.field-race-progress) .field-observation,
+  .field-activity-hud .field-tip {
     display: none;
   }
-  .field-race-invite + .field-observation {
-    margin-top: 7px;
-    padding-top: 7px;
+  .field-activity-hud .field-mobile-label {
+    display: block;
+  }
+  .field-mobile-label small {
+    font-size: 10px;
+    color: inherit;
+    margin: 2px 0 0;
+    opacity: 0.8;
+  }
+  .field-race-invite,
+  .field-observation {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    gap: 0;
+  }
+  .field-race-invite + .field-observation,
+  .field-race-progress + .field-observation {
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .field-observation > div {
+    display: contents;
+  }
+  .field-observation progress {
+    position: absolute;
+    bottom: 4px;
+    left: 10px;
+    width: calc(100% - 20px);
+    height: 3px;
+    margin: 0;
+    pointer-events: none;
   }
   .field-activity-hud button {
-    padding: 8px;
-    font-size: 11px;
+    min-height: 48px;
+    padding: 6px 12px;
+    margin: 0;
+    font-size: 12px;
+    border-radius: 14px;
   }
-  .field-activity-hud.is-racing {
-    top: 90px;
+  .field-race-invite > button,
+  .field-observation > button {
+    width: 100%;
+    color: #fff5df;
+    background: #213c38ed;
+    border-color: #fff0c680;
   }
-}
-@media (max-width: 600px) {
-  .field-activity-hud {
-    top: 86px;
+  .field-race-progress {
+    width: 100%;
+    min-height: 60px;
+    gap: 8px;
+    padding: 7px 8px 7px 12px;
+    border: 1px solid #fff0c680;
+    border-radius: 14px;
+    background: #213c38ed;
   }
-  .game-shell:has(.field-activity-hud) .world-title {
-    display: none;
+  .field-race-progress > div {
+    flex: 1;
+    min-width: 0;
   }
-  .game-shell:has(.field-activity-hud) .adventure-objective {
-    top: 224px;
+  .field-race-progress strong {
+    font-size: 13px;
+    letter-spacing: 0;
   }
-}
-@media (max-height: 480px) {
-  .field-activity-hud {
-    top: 80px;
-    width: 285px;
-    left: 50%;
+  .field-race-progress small {
+    font-size: 10px;
   }
-  .game-shell:has(.field-activity-hud) .world-title,
-  .game-shell:has(.field-activity-hud) .adventure-objective {
-    display: none;
+  .field-race-progress > b {
+    font-size: 20px;
+  }
+  .field-activity-hud .field-cancel {
+    min-width: 44px;
+    min-height: 44px;
   }
 }

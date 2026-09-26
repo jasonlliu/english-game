@@ -18,6 +18,7 @@ import { createPet } from '../rendering/models/pets';
 import type { ModelRig } from '../rendering/models/types';
 import { createTempleEnvironment } from '../rendering/temple/environment';
 import { createTempleLifetime } from '../rendering/temple/lifetime';
+import '../styles/mobileTemple.css';
 interface Props {
   region: RegionId;
   stage: 0 | 1 | 2 | 3;
@@ -43,7 +44,7 @@ export default function TempleScene(props: Props) {
       ? '旧日的灯火仍为你亮着。可以自由重访。'
       : '循着碑文的顺序，靠近三座光印并按 E 点亮。',
   );
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [unavailable, setUnavailable] = useState(false),
     [retry, setRetry] = useState(0);
   const navigateRef = useRef<(id: number) => void>(() => {}),
@@ -539,12 +540,14 @@ export default function TempleScene(props: Props) {
             className="temple-heading"
             onClick={() => setCollapsed(!collapsed)}
             aria-expanded={!collapsed}
+            aria-label={`${theme.name}，${collapsed ? '展开探索提示' : '收起探索提示'}`}
           >
             <span>
               <small>HIDDEN SANCTUARY · 秘境探索</small>
               <strong>{theme.name}</strong>
             </span>
             <b>{props.completed ? <Check size={18} /> : `${sequence.length} / 3`}</b>
+            <span className="temple-toggle-indicator">{collapsed ? '展开' : '收起'}</span>
           </button>
           {!collapsed && (
             <>

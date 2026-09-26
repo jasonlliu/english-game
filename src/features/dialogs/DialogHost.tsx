@@ -7,6 +7,8 @@ import type { DialogProps } from './types';
 type DialogName = Exclude<Panel, null> | 'reward';
 type DialogModule = { default: ComponentType<DialogProps> };
 const registry: Record<DialogName, () => Promise<DialogModule>> = {
+  menu: () => import('./AdventureMenu'),
+  sound: () => import('./SoundDialog'),
   checkin: () => import('./CheckinDialog'),
   journal: () => import('./CompanionJournal'),
   expedition: () => import('./ExpeditionJournal'),

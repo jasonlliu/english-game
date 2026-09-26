@@ -55,7 +55,7 @@ export default function FieldActivityHud({
             </>
           )}
           {!running && view.nearStart && (
-            <button onClick={start}>
+            <button onClick={start} aria-label="重新开始风车竞速">
               再试一次 <kbd>R</kbd>
             </button>
           )}
@@ -72,8 +72,9 @@ export default function FieldActivityHud({
               <small>限时穿环 · 奔跑路线由你掌握</small>
               <strong>风车竞速</strong>
             </div>
-            <button onClick={start}>
-              开始挑战 <kbd>R</kbd>
+            <button onClick={start} aria-label="开始风车竞速">
+              <span className="field-desktop-label">开始挑战</span>
+              <span className="field-mobile-label">风车竞速</span> <kbd>R</kbd>
             </button>
           </div>
         )
@@ -82,7 +83,7 @@ export default function FieldActivityHud({
         <p className="field-tip">下一环：{race.direction} · Shift 奔跑 · 骑乘会结束挑战</p>
       )}
       {!running && animal && (
-        <div className="field-observation">
+        <div className={`field-observation${animal.recorded ? ' is-recorded' : ''}`}>
           <span className="field-species-icon" aria-hidden="true">
             {FIELD_GUIDE[animal.kind].icon}
           </span>
@@ -105,6 +106,7 @@ export default function FieldActivityHud({
           {!animal.recorded && (
             <button
               disabled={animal.startled}
+              aria-label={`按住观察${FIELD_GUIDE[animal.kind].name} 3 秒${animal.startled ? '，它受惊了，请稍等' : ''}`}
               onPointerDown={(e) => {
                 if (e.button !== 0) return;
                 e.preventDefault();
@@ -128,7 +130,12 @@ export default function FieldActivityHud({
                 }
               }}
             >
-              观察 <kbd>Q</kbd>
+              <span className="field-desktop-label">观察</span>
+              <span className="field-mobile-label">
+                {FIELD_GUIDE[animal.kind].name}
+                <small>{animal.startled ? '受惊了，稍等片刻' : '按住观察 3 秒'}</small>
+              </span>{' '}
+              <kbd>Q</kbd>
             </button>
           )}
         </div>

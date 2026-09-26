@@ -3,6 +3,8 @@ import type { RegionId } from '../game/adventure';
 import type { WorldZone } from '../game/world';
 
 export type Panel =
+  | 'menu'
+  | 'sound'
   | 'checkin'
   | 'journal'
   | 'expedition'

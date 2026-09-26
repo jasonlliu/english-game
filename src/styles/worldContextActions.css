@@ -1,0 +1,53 @@
+.world-context-actions,
+.world-context-actions > div:not(.wild-bond-prompt, .temple-enter-prompt) {
+  display: contents;
+}
+
+@media (max-width: 760px), (max-width: 1000px) and (max-height: 500px) {
+  .world-context-actions {
+    position: absolute;
+    top: var(--mobile-context-top, calc(env(safe-area-inset-top) + 72px));
+    left: 50%;
+    width: min(320px, calc(100% - 32px));
+    transform: translateX(-50%);
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 6;
+  }
+
+  .world-context-actions > div[data-mobile-visible='false'] {
+    display: none;
+  }
+
+  .world-context-actions
+    :is(.field-activity-hud, .discovery-prompt, .wild-bond-prompt, .temple-enter-prompt) {
+    position: static;
+    transform: none;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    pointer-events: auto;
+  }
+
+  .world-context-actions :is(.wild-bond-prompt, .temple-enter-prompt) {
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .world-context-actions :is(.wild-bond-prompt, .temple-enter-prompt) button {
+    min-height: 48px;
+    width: 100%;
+    justify-content: center;
+    border: 1px solid #fff0c680;
+    background: #213c38ed;
+    border-radius: 14px;
+    font-size: 13px;
+  }
+
+  .world-context-actions kbd {
+    display: none;
+  }
+}

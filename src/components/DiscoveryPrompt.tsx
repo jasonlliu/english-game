@@ -12,7 +12,7 @@ export default function DiscoveryPrompt({
 }) {
   if (!proximity.near && !proximity.sense) return null;
   return (
-    <div className="discovery-prompt">
+    <div className={`discovery-prompt${proximity.near ? '' : ' is-passive'}`}>
       {proximity.near ? (
         <button onClick={onInteract}>
           <span>

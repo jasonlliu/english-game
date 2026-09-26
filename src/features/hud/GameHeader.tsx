@@ -1,4 +1,4 @@
-import { CalendarCheck, Check, Compass, Map, PawPrint, Star, Sun } from 'lucide-react';
+import { CalendarCheck, Check, Compass, Map, Menu, PawPrint, Star, Sun } from 'lucide-react';
 import type { AdventureController } from '../../app/useAdventureController';
 import SoundControls from './SoundControls';
 import { getWorldSurvey } from '../../game/worldSurvey';
@@ -15,6 +15,17 @@ export default function GameHeader({ game }: { game: AdventureController }) {
           曙光旷野<small>LUMEN WILDS</small>
         </span>
       </a>
+      <button
+        className="mobile-region-button"
+        aria-label="打开世界地图"
+        onClick={() => setPanel('map')}
+      >
+        <Map size={18} />
+        <span>
+          {game.region.name}
+          <small>地图 · 探索 {getWorldSurvey(survey).percent}%</small>
+        </span>
+      </button>
       <nav className="top-nav" aria-label="游戏导航">
         <span className="nav-active">
           <Compass size={15} />
@@ -49,6 +60,14 @@ export default function GameHeader({ game }: { game: AdventureController }) {
           onClick={() => setPanel('guide')}
         >
           ?
+        </button>
+        <button
+          className="mobile-menu-button"
+          aria-label="打开冒险菜单"
+          onClick={() => setPanel('menu')}
+        >
+          <Menu size={20} />
+          <span>菜单</span>
         </button>
       </div>
     </header>

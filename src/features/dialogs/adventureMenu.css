@@ -1,0 +1,146 @@
+.adventure-menu {
+  color: var(--ink);
+  text-align: left;
+}
+.adventure-menu h2 {
+  margin: 8px 0;
+}
+.menu-summary {
+  color: #718074;
+  font-size: 13px;
+}
+.menu-destinations {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 22px 0;
+}
+.menu-destinations button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 12px;
+  min-height: 76px;
+  border: 1px solid #dce2d3;
+  border-radius: 14px;
+  background: #fffdf5;
+  text-align: left;
+}
+.menu-destinations button > span {
+  flex: 1;
+  min-width: 0;
+}
+.menu-destinations b {
+  display: block;
+  font-size: 14px;
+}
+.menu-destinations small {
+  display: block;
+  margin-top: 5px;
+  color: #7b897b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.menu-destinations button > svg:last-child {
+  display: none;
+}
+.menu-quest {
+  background: #e8eddf;
+  border-radius: 14px;
+  padding: 16px;
+}
+.menu-quest > small {
+  font-size: 11px;
+  color: #6e8068;
+}
+.menu-quest h3 {
+  margin: 7px 0;
+  font-size: 16px;
+}
+.menu-quest p {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #748170;
+}
+.menu-quest button,
+.menu-temple {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 46px;
+  font-size: 13px;
+}
+.menu-quest button {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #58735b;
+  border-radius: 10px;
+  color: #fff9e7;
+}
+.menu-temple {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #ece6d7;
+}
+.menu-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+}
+.menu-footer button,
+.menu-demo button {
+  min-height: 44px;
+  background: transparent;
+  font-size: 12px;
+  padding: 8px;
+}
+.menu-demo summary {
+  padding: 14px 8px;
+  min-height: 44px;
+  font-size: 12px;
+  color: #7b897b;
+  cursor: pointer;
+}
+.menu-demo > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.menu-resume {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 12px;
+  border: 1px solid #bdc9b5;
+  border-radius: 12px;
+  background: transparent;
+  font-size: 14px;
+}
+.menu-sound .sound-panel {
+  position: static;
+  width: 100%;
+  max-width: none;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  backdrop-filter: none;
+  padding: 0;
+}
+.menu-sound .sound-panel button {
+  min-height: 44px;
+}
+@media (max-width: 400px) {
+  .menu-destinations {
+    gap: 8px;
+  }
+  .menu-destinations button {
+    gap: 8px;
+    padding: 12px 10px;
+  }
+  .menu-destinations small {
+    font-size: 10px;
+  }
+}

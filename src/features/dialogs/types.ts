@@ -1,5 +1,5 @@
 import type { Panel } from '../../app/presentation';
-import type { SoundCue } from '../../audio/types';
+import type { GameAudioController, SoundCue } from '../../audio/types';
 import {
   getUnlockedRegions,
   REGIONS,
@@ -20,6 +20,17 @@ import type { WorldPosition } from '../../app/worldTelemetry';
 
 /** Dialogs are presenters; only application commands may change a saved game. */
 export interface DialogProps {
+  menu?: {
+    audio: GameAudioController;
+    questTitle: string;
+    questButton: string;
+    questAction(): void;
+    insideTemple: boolean;
+    enterTemple(): void;
+    exitTemple(): void;
+    changeMode(mode: Mode): void;
+    resetDemo(): void;
+  };
   panel: Panel;
   reward: 'checkin' | PetId | null;
   mode: Mode;

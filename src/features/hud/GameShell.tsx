@@ -219,6 +219,17 @@ export default function GameShell({ game }: { game: AdventureController }) {
       {isModal && (
         <ModalShell panel={panel} reward={reward} onClose={closeModal}>
           <DialogHost
+            menu={{
+              audio: game.audio,
+              questTitle: game.questTitle,
+              questButton: game.questButton,
+              questAction: game.questAction,
+              insideTemple,
+              enterTemple,
+              exitTemple,
+              changeMode,
+              resetDemo,
+            }}
             panel={panel}
             reward={reward}
             mode={mode}
