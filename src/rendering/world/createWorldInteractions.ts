@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CRYSTAL_POSITIONS, getTerrainHeight } from '../../game/world';
+import { getCrystalPositions, getTerrainHeight as terrainHeight } from '../../game/world';
 import type { WorldRenderContext } from './context';
 export function createWorldInteractions(
   context: WorldRenderContext,
@@ -23,10 +23,15 @@ export function createWorldInteractions(
     glowing,
     moss,
   } = context;
+  const getTerrainHeight = (x: number, z: number) => terrainHeight(x, z, region);
+  const CRYSTAL_POSITIONS = getCrystalPositions(region);
+  const inlandDecor = new THREE.Group();
+  inlandDecor.name = 'inland-ruin-decor';
+  if (region !== 'water') scene.add(inlandDecor);
   // Ancient stone architecture is on the far hill, visible from the first frame.
   const ruins = new THREE.Group();
   ruins.position.set(-8, getTerrainHeight(-8, -27), -27);
-  scene.add(ruins);
+  inlandDecor.add(ruins);
   mesh(cylinder, stoneDark, ruins, [0, 0.13, 0], [5.3, 0.22, 4.5]);
   mesh(cylinder, stone, ruins, [0, 0.27, 0], [4.7, 0.16, 4]);
   for (const side of [-1, 1]) {
@@ -86,13 +91,13 @@ export function createWorldInteractions(
     [-0.8, -24.8, 5.2],
   ]) {
     const y = getTerrainHeight(x, z);
-    mesh(cube, stoneDark, scene, [x, y + 0.2, z], [2, 0.4, 1.9]);
-    mesh(cube, stone, scene, [x, y + height / 2, z], [1.35, height, 1.5]);
-    mesh(cube, stoneLight, scene, [x, y + height, z], [1.9, 0.4, 2]);
+    mesh(cube, stoneDark, inlandDecor, [x, y + 0.2, z], [2, 0.4, 1.9]);
+    mesh(cube, stone, inlandDecor, [x, y + height / 2, z], [1.35, height, 1.5]);
+    mesh(cube, stoneLight, inlandDecor, [x, y + height, z], [1.9, 0.4, 2]);
   }
   const portalLight = new THREE.PointLight(theme.glow, 10, 13);
   portalLight.position.set(-8, ruins.position.y + 3, -24);
-  scene.add(portalLight);
+  inlandDecor.add(portalLight);
   for (const [x, z, height] of [
     [-31.6, -5, 3.5],
     [-27.8, -9.6, 2.8],
@@ -100,7 +105,7 @@ export function createWorldInteractions(
     const rock = mesh(
       pebbleGeometry,
       stone,
-      scene,
+      inlandDecor,
       [x, getTerrainHeight(x, z) + height * 0.45, z],
       [1.4, height, 1.15],
     );
@@ -108,7 +113,7 @@ export function createWorldInteractions(
     mesh(
       cube,
       glowing,
-      scene,
+      inlandDecor,
       [x + 0.1, getTerrainHeight(x, z) + height, z + 0.96],
       [0.12, 1.05, 0.03],
     );
@@ -151,7 +156,7 @@ export function createWorldInteractions(
   const chest = new THREE.Group();
   chest.position.set(-5.1, getTerrainHeight(-5.1, -20.2), -20.2);
   chest.rotation.y = 0.2;
-  scene.add(chest);
+  if (region !== 'water') scene.add(chest);
   const chestWood = mat('#986b45');
   mesh(cube, chestWood, chest, [0, 0.48, 0], [1.65, 0.9, 1.2]);
   for (const side of [-1, 1]) mesh(cube, gold, chest, [side * 0.59, 0.47, 0], [0.18, 0.96, 1.26]);

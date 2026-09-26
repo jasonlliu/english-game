@@ -4,7 +4,7 @@ import { REGION_IDS, type RegionId } from '../src/game/adventure';
 import { FLIGHT_CEILING, findLandingSpot, getFlightFloor, moveFlight } from '../src/game/flight';
 import { REGION_PLACES, REGION_VOLUMES, distanceToVolume } from '../src/game/landmarks';
 import {
-  CRYSTAL_POSITIONS,
+  getCrystalPositions,
   SPAWN_POSITION,
   WORLD_BOUNDS,
   getNavigationPath,
@@ -42,7 +42,11 @@ function assertRoute(region: RegionId, from: WorldPoint, to: WorldPoint) {
 
 test('all six regions retain reachable seals, wild pets, temple entrances and named viewpoints', () => {
   for (const region of REGION_IDS) {
-    const destinations = [...CRYSTAL_POSITIONS, ...REGION_PLACES[region], { x: -10.8, z: -21.7 }];
+    const destinations = [
+      ...getCrystalPositions(region),
+      ...REGION_PLACES[region],
+      { x: -10.8, z: -21.7 },
+    ];
     for (const destination of destinations) {
       assertRoute(region, SPAWN_POSITION, destination);
       assertRoute(region, destination, SPAWN_POSITION);
@@ -78,7 +82,7 @@ test('solid regional buildings block their footprints while high bridges remain 
 test('flight clears the entire roof footprint of every region landmark', () => {
   for (const region of REGION_IDS)
     for (const volume of REGION_VOLUMES[region]) {
-      const safeRoof = getTerrainHeight(volume.x, volume.z) + volume.height + 3;
+      const safeRoof = getTerrainHeight(volume.x, volume.z, region) + volume.height + 3;
       assert.ok(
         safeRoof < FLIGHT_CEILING - 6,
         `${region}: ${volume.id} is too tall for the available flight clearance`,

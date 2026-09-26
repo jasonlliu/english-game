@@ -102,11 +102,11 @@ export const REGIONS: Record<
     id: 'water',
     name: '澄波湖境',
     element: '水',
-    description: '沿白石拱廊走向灯塔港湾，阶瀑与湖光之间藏着新伙伴。',
+    description: '沿新月沙岸走向白帆灯港，看帆船掠过海蚀石拱，循浪声寻找珍珠水殿。',
     color: '#78c9e2',
     day: 2,
     petId: 'ripple',
-    challenge: '探索湖境，找到三枚潮汐符印，再靠近澜尾。',
+    challenge: '沿海岸与白石拱廊寻找三枚潮汐符印，再与澜尾建立羁绊。',
     sealName: '潮汐符印',
   },
   fire: {

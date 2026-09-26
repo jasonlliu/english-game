@@ -95,9 +95,10 @@ export const REGION_PLACES: Record<RegionId, RegionPlace[]> = {
     {
       id: 'harbor',
       name: '白帆灯港',
-      description: '白石灯塔守望蓝色湖湾，帆船停在木码头旁。',
-      x: 47,
-      z: 23,
+      description: '沿宽阔的海岸走向白石灯塔，帆船停在蓝白渔港旁。',
+      x: 48,
+      z: 46,
+      lookAt: { x: 54, z: 27 },
       kind: 'harbor',
     },
     {
@@ -237,7 +238,7 @@ export const REGION_SITES: Record<RegionId, ScenerySite[]> = {
     { id: 'bell-hill', kind: 'hilltop-belfry', x: -4, z: -95 },
   ],
   water: [
-    { id: 'harbor', kind: 'harbor', x: 48, z: 17 },
+    { id: 'harbor', kind: 'harbor', x: 53, z: 44 },
     { id: 'arcade', kind: 'white-arcade', x: -30, z: 9 },
     { id: 'cascade', kind: 'cascade', x: -42, z: -36 },
   ],
@@ -308,9 +309,9 @@ export const REGION_VOLUMES: Record<RegionId, LandmarkVolume[]> = {
   ],
   water: [
     ...templeVolumes,
-    volume('lighthouse', 48, 13, 2.6, 2.6, 20),
-    volume('harbor-house', 54, 22, 3.3, 2.7, 7),
-    volume('harbor-store', 42, 26, 2.8, 2.2, 6),
+    volume('lighthouse', 60, 38, 2.72, 2.72, 22),
+    volume('harbor-house', 56, 52, 3.3, 2.7, 7),
+    volume('harbor-store', 43, 53, 2.8, 2.2, 6),
     volume('arcade-back', -30, 7, 7, 1.5, 8.5),
     volume('arcade-left', -36, 10, 1.2, 3, 8.5),
     volume('arcade-right', -24, 10, 1.2, 3, 8.5),
@@ -319,6 +320,17 @@ export const REGION_VOLUMES: Record<RegionId, LandmarkVolume[]> = {
     volume('arcade-front-mid-right', -27.1, 10, 0.8, 0.75, 7.5),
     volume('arcade-front-right', -21.75, 10, 0.35, 0.75, 7.5),
     volume('cascade-cliffs', -44, -39, 8.5, 9, 27),
+    // Marine structures start at world Y .3/.35, above the inlet's -1.2 seabed.
+    volume('sea-arch-west', 34.5, -27, 3.65, 3.65, 17),
+    volume('sea-arch-east', 53.5, -27, 3.65, 3.65, 17),
+    volume('sea-arch-span', 44, -27, 11, 2.8, 19.5, 9.5),
+    volume('sea-stack-east', 71, -25, 3.2, 3.2, 18.75),
+    volume('sea-stack-north', 62, -39, 4, 4, 13.15),
+    volume('sea-stack-west', 22, -28, 2.2, 2.2, 12.05),
+    // Include the full bob, roll and yaw envelope; heights are relative to the local seabed.
+    volume('sailboat-near', 17, 25, 2.2, 2.5, 7.8),
+    volume('sailboat-center', 33, 7, 3.6, 3.6, 11.1),
+    volume('sailboat-east', 61, -8, 2.9, 3, 9.2),
   ],
   fire: [
     ...templeVolumes,
@@ -400,6 +412,41 @@ export const REGION_PATHS: Record<
       }),
   ]),
 ) as Record<RegionId, Array<Array<{ x: number; z: number }>>>;
+
+// Coastal routes hug the western and southern shores of the broad inlet.
+REGION_PATHS.water = [
+  [
+    { x: 0, z: 24 },
+    { x: -9, z: 8 },
+    { x: -13, z: -9 },
+    { x: -8, z: -23 },
+  ],
+  [
+    { x: -9, z: 8 },
+    { x: -25, z: -5 },
+    { x: -35, z: -16 },
+    { x: -35, z: -25 },
+  ],
+  [
+    { x: 0, z: 24 },
+    { x: -18, z: 23 },
+    { x: -28, z: 17 },
+  ],
+  [
+    { x: 0, z: 24 },
+    { x: 12, z: 36 },
+    { x: 29, z: 47 },
+    { x: 48, z: 46 },
+    { x: 60, z: 47 },
+  ],
+  [
+    { x: -35, z: -25 },
+    { x: -24, z: -47 },
+    { x: -5, z: -59 },
+    { x: 24, z: -65 },
+    { x: 53, z: -64 },
+  ],
+];
 
 // Deliberate winding routes preserve a wide clearing around the old core and
 // connect the new destinations without drawing paths through water or buildings.

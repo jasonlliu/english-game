@@ -21,7 +21,8 @@ export function createWorldEnvironment(region: RegionId, initialTreasureOpened =
   try {
     const { sunlight } = createAtmosphere(context);
     const terrain = createTerrain(context);
-    const vegetation = createVegetation(context);
+    const vegetation =
+      region === 'water' ? { wind: { value: 0 }, regionCrowns: [] } : createVegetation(context);
     const water = createWater(context, vegetation.regionCrowns);
     const interactions = createWorldInteractions(context, initialTreasureOpened);
     const life = createAmbientLife(context);

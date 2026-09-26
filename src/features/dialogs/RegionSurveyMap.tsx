@@ -1,7 +1,12 @@
 import { useId, type CSSProperties } from 'react';
 import { REGIONS, type RegionId } from '../../game/adventure';
 import { REGION_PLACES, REGION_VOLUMES } from '../../game/landmarks';
-import { getRegionTrails, getWorldBounds, LAKE, type WorldPoint } from '../../game/worldLayout';
+import {
+  getRegionTrails,
+  getWorldBounds,
+  getRegionLake,
+  type WorldPoint,
+} from '../../game/worldLayout';
 import { SURVEY_GRID_SIZE, type WorldSurvey } from '../../game/worldSurvey';
 
 export interface RegionSurveyMapProps {
@@ -63,6 +68,7 @@ export default function RegionSurveyMap({
   onSelectPlace,
 }: RegionSurveyMapProps) {
   const id = useId();
+  const LAKE = getRegionLake(regionId);
   const bounds = getWorldBounds(regionId);
   const scaleX = MAP_SIZE / (bounds.maxX - bounds.minX);
   const scaleZ = MAP_SIZE / (bounds.maxZ - bounds.minZ);

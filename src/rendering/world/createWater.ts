@@ -1,5 +1,9 @@
 import * as THREE from 'three';
-import { getTerrainHeight, LAKE, lakeDistance } from '../../game/world';
+import {
+  getTerrainHeight as terrainHeight,
+  getRegionLake,
+  lakeDistance as distanceToLake,
+} from '../../game/world';
 import type { WorldRenderContext } from './context';
 export function createWater(context: WorldRenderContext, regionCrowns: THREE.BufferGeometry[]) {
   const {
@@ -22,6 +26,9 @@ export function createWater(context: WorldRenderContext, regionCrowns: THREE.Buf
     glowing,
     matrixDummy,
   } = context;
+  const LAKE = getRegionLake(region);
+  const getTerrainHeight = (x: number, z: number) => terrainHeight(x, z, region);
+  const lakeDistance = (x: number, z: number) => distanceToLake(x, z, region);
   // A lake with a real shoreline, a playable sandy peninsula, ripples and reeds.
   const waterVertices: number[] = [LAKE.x, LAKE.waterLevel, LAKE.z],
     waterIndices: number[] = [];
@@ -103,47 +110,7 @@ export function createWater(context: WorldRenderContext, regionCrowns: THREE.Buf
   const landmark = new THREE.Group();
   landmark.position.set(LAKE.x, LAKE.waterLevel, LAKE.z);
   scene.add(landmark);
-  if (region === 'water') {
-    const coralMaterials = [mat('#e9a9a3', { roughness: 0.6 }), mat('#8bced2', { roughness: 0.5 })];
-    for (const side of [-1, 1]) {
-      mesh(cylinder, stoneLight, landmark, [side * 5.6, 3.0, 0], [0.42, 6, 0.42]);
-      mesh(
-        regionCrowns[1],
-        coralMaterials[side === -1 ? 0 : 1],
-        landmark,
-        [side * 5.6, -0.4, 0],
-        [1.4, 1.5, 1.4],
-      );
-      mesh(
-        keep(new THREE.OctahedronGeometry(1, 0)),
-        glowing,
-        landmark,
-        [side * 5.6, 9.05, 0],
-        [0.48, 1.2, 0.48],
-      );
-    }
-    const pearlArch = mesh(
-      keep(new THREE.TorusGeometry(5.7, 0.28, 8, 48, Math.PI)),
-      stoneLight,
-      landmark,
-      [0, 5.2, 0],
-      [1, 0.86, 1],
-    );
-    pearlArch.rotation.y = 0.04;
-    const pearl = mesh(
-      sphere,
-      mat('#e7fcf6', {
-        emissive: '#8fbebc',
-        emissiveIntensity: 0.25,
-        metalness: 0.3,
-        roughness: 0.16,
-      }),
-      landmark,
-      [0, 7.8, 0],
-      [0.75, 0.75, 0.75],
-    );
-    regionAnimations.push({ object: pearl, axis: 'y', speed: 0.2 });
-  } else if (region === 'fire') {
+  if (region === 'fire') {
     const volcanoProfile = [
       new THREE.Vector2(8.0, 0),
       new THREE.Vector2(7.3, 2),

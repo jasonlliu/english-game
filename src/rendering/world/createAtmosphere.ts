@@ -85,7 +85,7 @@ export function createAtmosphere(context: WorldRenderContext) {
     scene.add(disk);
   }
   // Layered ridgelines create a landscape that extends far beyond the playable land.
-  for (let layer = 0; layer < 3; layer++) {
+  for (let layer = 0; layer < (region === 'water' ? 0 : 3); layer++) {
     const ridge = keep(new THREE.PlaneGeometry(360, 65, 100, 10));
     ridge.rotateX(-Math.PI / 2);
     const positions = ridge.attributes.position;

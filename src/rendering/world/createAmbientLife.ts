@@ -15,7 +15,7 @@ export function createAmbientLife(context: WorldRenderContext) {
   birdGeometry.computeVertexNormals();
   const birdMaterial = basic('#4b6e73', { side: THREE.DoubleSide });
   const birds: THREE.Mesh[] = [];
-  for (let i = 0; i < 9; i++)
+  for (let i = 0; i < (region === 'water' ? 0 : 9); i++)
     birds.push(mesh(birdGeometry, birdMaterial, scene, [0, 0, 0], [1, 1, 1], false));
   const butterflyMaterial = basic(theme.flowers[0], { side: THREE.DoubleSide });
   const butterflyGeometry = keep(new THREE.CircleGeometry(0.105, 6));
@@ -25,7 +25,7 @@ export function createAmbientLife(context: WorldRenderContext) {
     x: number;
     z: number;
   }[] = [];
-  for (let i = 0; i < 13; i++) {
+  for (let i = 0; i < (region === 'water' ? 0 : 13); i++) {
     const group = new THREE.Group();
     scene.add(group);
     const wings = [-1, 1].map((side) =>

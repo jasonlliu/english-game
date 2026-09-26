@@ -45,7 +45,19 @@ export const CRYSTAL_POSITIONS: WorldPoint[] = [
   WORLD_ZONES.grove,
   WORLD_ZONES.shore,
 ];
+const WATER_ZONES = { ...WORLD_ZONES, shore: { x: 12, z: 36 } };
+const WATER_CRYSTALS = Object.values(WATER_ZONES);
+export function getRegionZones(region: RegionId = 'meadow'): Record<WorldZone, WorldPoint> {
+  return region === 'water' ? WATER_ZONES : WORLD_ZONES;
+}
+export function getCrystalPositions(region: RegionId = 'meadow'): WorldPoint[] {
+  return region === 'water' ? WATER_CRYSTALS : CRYSTAL_POSITIONS;
+}
 export const LAKE = { x: 32, z: -5, radiusX: 13, radiusZ: 15, waterLevel: 0.55 } as const;
+const COAST = { x: 41, z: -8, radiusX: 42, radiusZ: 45, waterLevel: 0.55 };
+export function getRegionLake(region: RegionId = 'meadow') {
+  return region === 'water' ? COAST : LAKE;
+}
 export const TRAILS: WorldPoint[][] = [
   [
     { x: 8, z: 76 },
@@ -82,5 +94,5 @@ export const TRAILS: WorldPoint[][] = [
 ];
 
 export function getRegionTrails(region: RegionId = 'meadow'): WorldPoint[][] {
-  return [...TRAILS, ...REGION_PATHS[region]];
+  return region === 'water' ? REGION_PATHS.water : [...TRAILS, ...REGION_PATHS[region]];
 }

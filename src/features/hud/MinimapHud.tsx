@@ -3,13 +3,14 @@ import { useSyncExternalStore } from 'react';
 import type { AdventureController } from '../../app/useAdventureController';
 import WorldMap from '../../features/hud/WorldMap';
 import { REGION_PLACES } from '../../game/landmarks';
-import { WORLD_ZONES } from '../../game/worldLayout';
+import { getRegionZones } from '../../game/worldLayout';
 import { getRegionSurvey } from '../../game/worldSurvey';
 
 import { waypointNames, zoneKeys } from '../../app/presentation';
 
 export default function MinimapHud({ game }: { game: AdventureController }) {
   const { telemetry, setPanel, regionId, region, seals, isModal } = game;
+  const WORLD_ZONES = getRegionZones(regionId);
   const position = useSyncExternalStore(
     telemetry.position.subscribe,
     telemetry.position.getSnapshot,

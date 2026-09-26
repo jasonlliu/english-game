@@ -1,8 +1,13 @@
 import * as THREE from 'three';
-import { getTerrainHeight, lakeDistance } from '../../game/world';
+import {
+  getTerrainHeight as terrainHeight,
+  lakeDistance as distanceToLake,
+} from '../../game/world';
 import type { WorldRenderContext } from './context';
 export function createTerrain(context: WorldRenderContext) {
   const { region, theme, scene, TRAILS, keep, mat, mesh } = context;
+  const getTerrainHeight = (x: number, z: number) => terrainHeight(x, z, region);
+  const lakeDistance = (x: number, z: number) => distanceToLake(x, z, region);
   // Leave a broad apron beyond the playable edge so distant views never reveal a void.
   const terrainSize = region === 'meadow' ? 286 : 224;
   const terrainGeometry = keep(new THREE.PlaneGeometry(terrainSize, terrainSize, 224, 224));
@@ -21,7 +26,8 @@ export function createTerrain(context: WorldRenderContext) {
       Math.sin(x * 0.19) * Math.cos(z * 0.16) * 0.2 + Math.sin(x * 0.43 + z * 0.23) * 0.07 + 0.49;
     const color = darkGrass.clone().lerp(lightGrass, patch);
     const lakeEdge = lakeDistance(x, z);
-    if (lakeEdge < 1.22) color.lerp(sand, Math.max(0, 1 - Math.abs(lakeEdge - 1.04) * 5));
+    if (region === 'water') color.lerp(sand, Math.max(0, Math.min(1, (1.65 - lakeEdge) * 2)));
+    else if (lakeEdge < 1.22) color.lerp(sand, Math.max(0, 1 - Math.abs(lakeEdge - 1.04) * 5));
     groundColors.push(color.r, color.g, color.b);
   }
   terrainGeometry.setAttribute('color', new THREE.Float32BufferAttribute(groundColors, 3));

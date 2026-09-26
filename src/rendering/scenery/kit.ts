@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { getTerrainHeight } from '../../game/world';
+import { REGION_IDS } from '../../game/adventure';
 import type { RegionScenery } from './types';
 export type SceneryPalette = readonly [
   wall: string,
@@ -11,6 +12,7 @@ export type SceneryPalette = readonly [
   leaves: string,
 ];
 export function createSceneryKit(name: string, palette: SceneryPalette) {
+  const terrainRegion = REGION_IDS.find((id) => id === name) ?? 'meadow';
   const group = new THREE.Group();
   group.name = `architecture-${name}`;
   const staticRoot = new THREE.Group();
@@ -145,7 +147,7 @@ export function createSceneryKit(name: string, palette: SceneryPalette) {
   };
   const origin = (x: number, z: number) => {
     const p = new THREE.Group();
-    p.position.set(x, getTerrainHeight(x, z), z);
+    p.position.set(x, getTerrainHeight(x, z, terrainRegion), z);
     staticRoot.add(p);
     return p;
   };

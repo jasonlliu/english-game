@@ -2,8 +2,8 @@ import { zoneKeys } from '../../app/presentation';
 import { REGIONS, type RegionId } from '../../game/adventure';
 import { REGION_PLACES } from '../../game/landmarks';
 import {
-  LAKE,
-  WORLD_ZONES,
+  getRegionLake,
+  getRegionZones,
   getRegionTrails,
   getWorldBounds,
   type WorldPoint,
@@ -18,6 +18,8 @@ export default function WorldMap({
   position: WorldPoint & { heading: number };
 }) {
   const region = REGIONS[regionId];
+  const LAKE = getRegionLake(regionId);
+  const WORLD_ZONES = getRegionZones(regionId);
   const bounds = getWorldBounds(regionId);
   const scaleX = 176 / (bounds.maxX - bounds.minX),
     scaleZ = 176 / (bounds.maxZ - bounds.minZ);

@@ -1,5 +1,5 @@
 import {
-  LAKE,
+  getRegionLake,
   SPAWN_POSITION,
   TRAILS,
   getWorldBounds,
@@ -16,6 +16,9 @@ export {
   TRAILS,
   getWorldBounds,
   getRegionTrails,
+  getRegionLake,
+  getRegionZones,
+  getCrystalPositions,
   type WorldZone,
   type WorldPoint,
   type WorldTree,
@@ -26,18 +29,29 @@ const smoothstep = (low: number, high: number, value: number) => {
   const t = Math.max(0, Math.min(1, (value - low) / (high - low)));
   return t * t * (3 - 2 * t);
 };
-export function lakeDistance(x: number, z: number) {
+export function lakeDistance(x: number, z: number, region: RegionId = 'meadow') {
+  const LAKE = getRegionLake(region);
   const nx = (x - LAKE.x) / LAKE.radiusX;
   const nz = (z - LAKE.z) / LAKE.radiusZ;
   const angle = Math.atan2(nz, nx);
+  if (region === 'water')
+    return (
+      Math.hypot(nx, nz) / (1 + Math.sin(angle * 3) * 0.018 + Math.cos(angle * 5) * 0.012) +
+      Math.exp(-((x - 59) ** 2 / 90 + (z - 37) ** 2 / 50)) * 0.16
+    );
   const shorePeninsula = Math.exp(-((x - 22.5) ** 2 / 35 + (z - 4) ** 2 / 29)) * 0.42;
   return (
     Math.hypot(nx, nz) / (1 + Math.sin(angle * 3 + 0.7) * 0.055 + Math.cos(angle * 5) * 0.027) +
     shorePeninsula
   );
 }
-export function getTerrainHeight(x: number, z: number): number {
+export function getTerrainHeight(x: number, z: number, region: RegionId = 'meadow'): number {
   if (!Number.isFinite(x) || !Number.isFinite(z)) return 0;
+  if (region === 'water') {
+    const shore = lakeDistance(x, z, region);
+    const coast = 1.7 + Math.sin(x * 0.055) * Math.cos(z * 0.07) * 0.24;
+    return -1.2 + (coast + 1.2) * smoothstep(0.88, 1.13, shore);
+  }
   const meadow =
     1.8 +
     Math.sin(x * 0.062 + 0.5) * Math.cos(z * 0.055) * 1.5 +
@@ -123,8 +137,34 @@ function makeOuterMeadowTrees(): WorldTree[] {
   return trees;
 }
 const OUTER_MEADOW_TREES = makeOuterMeadowTrees();
+function makeCoastalTrees(): WorldTree[] {
+  let seed = 49631;
+  const random = () => {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
+  const trees: WorldTree[] = [];
+  for (let i = 0; i < 900 && trees.length < 36; i++) {
+    const north = i % 3 === 0;
+    const x = north ? -23 + random() * 82 : -63 + random() * 45;
+    const z = north ? -68 + random() * 14 : -53 + random() * 113;
+    if (lakeDistance(x, z, 'water') < 1.22 || distanceToTrail(x, z, 'water') < 5) continue;
+    if (REGION_VOLUMES.water.some((v) => distanceToVolume(x, z, v) < 5)) continue;
+    if (REGION_PLACES.water.some((p) => Math.hypot(x - p.x, z - p.z) < 7)) continue;
+    if (trees.some((t) => Math.hypot(t.x - x, t.z - z) < 6)) continue;
+    trees.push({
+      x,
+      z,
+      size: 0.7 + random() * 0.35,
+      variant: trees.length % 3 === 0 ? 1 : 0,
+      rotation: random() * Math.PI * 2,
+    });
+  }
+  return trees;
+}
 const treeCache = new Map<RegionId, WorldTree[]>();
 export function getWorldTrees(region: RegionId = 'meadow'): WorldTree[] {
+  if (region === 'water' && !treeCache.has(region)) treeCache.set(region, makeCoastalTrees());
   if (!treeCache.has(region)) {
     const density = { meadow: 0.14, water: 0.42, fire: 0.52, earth: 0.6, steel: 0.55, fairy: 0.19 }[
       region
@@ -189,6 +229,11 @@ export const WORLD_OBSTACLES = [
   { x: 47, z: -39, radius: 7 },
 ] as const;
 
+const COAST_OBSTACLES: (typeof WORLD_OBSTACLES)[number][] = [];
+export function getWorldObstacles(region: RegionId = 'meadow') {
+  return region === 'water' ? COAST_OBSTACLES : WORLD_OBSTACLES;
+}
+
 export function clampToWorld(position: WorldPoint, region: RegionId = 'meadow'): WorldPoint {
   const bounds = getWorldBounds(region);
   return {
@@ -218,8 +263,8 @@ export function isWalkable(
     z > bounds.maxZ - radius
   )
     return false;
-  if (lakeDistance(x, z) < 1.065 + radius / 15) return false;
-  for (const obstacle of WORLD_OBSTACLES)
+  if (lakeDistance(x, z, region) < 1.065 + radius / 15) return false;
+  for (const obstacle of getWorldObstacles(region))
     if (Math.hypot(x - obstacle.x, z - obstacle.z) < radius + obstacle.radius) return false;
   for (const volume of REGION_VOLUMES[region])
     if ((volume.minY ?? 0) < 2.6 && distanceToVolume(x, z, volume) <= radius) return false;
@@ -261,7 +306,7 @@ function clearSegment(from: WorldPoint, to: WorldPoint, region: RegionId): boole
       : 0;
     return (from.x + dx * t - x) ** 2 + (from.z + dz * t - z) ** 2 < (radius + 0.6) ** 2;
   };
-  for (const obstacle of WORLD_OBSTACLES)
+  for (const obstacle of getWorldObstacles(region))
     if (intersectsCircle(obstacle.x, obstacle.z, obstacle.radius)) return false;
   for (const tree of getWorldTrees(region))
     if (intersectsCircle(tree.x, tree.z, tree.size * 0.23)) return false;
@@ -289,7 +334,10 @@ function clearSegment(from: WorldPoint, to: WorldPoint, region: RegionId): boole
   }
   const count = Math.max(1, Math.ceil(Math.sqrt(lengthSquared) / 0.1));
   for (let i = 0; i <= count; i++)
-    if (lakeDistance(from.x + (dx * i) / count, from.z + (dz * i) / count) < 1.065 + 0.6 / 15)
+    if (
+      lakeDistance(from.x + (dx * i) / count, from.z + (dz * i) / count, region) <
+      1.065 + 0.6 / 15
+    )
       return false;
   return true;
 }

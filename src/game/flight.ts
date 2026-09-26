@@ -1,9 +1,9 @@
 import type { RegionId } from './adventure';
 import { REGION_VOLUMES, distanceToVolume } from './landmarks';
 import {
-  LAKE,
+  getRegionLake,
   SPAWN_POSITION,
-  WORLD_OBSTACLES,
+  getWorldObstacles,
   clampToWorld,
   getTerrainHeight,
   getWorldBounds,
@@ -45,16 +45,17 @@ const smooth = (t: number) => {
 export function getFlightFloor(x: number, z: number, region: RegionId = 'meadow'): number {
   if (!Number.isFinite(x) || !Number.isFinite(z))
     return getFlightFloor(SPAWN_POSITION.x, SPAWN_POSITION.z, region);
+  const LAKE = getRegionLake(region);
   const ground = Math.max(
-    getTerrainHeight(x, z),
-    lakeDistance(x, z) < 1.1 ? LAKE.waterLevel : -Infinity,
+    getTerrainHeight(x, z, region),
+    lakeDistance(x, z, region) < 1.1 ? LAKE.waterLevel : -Infinity,
   );
   let floor = ground + CLEARANCE;
   for (const tree of getWorldTrees(region)) {
     const distance = Math.hypot(x - tree.x, z - tree.z);
     const crown = tree.size * 2.7 + 1.5;
     if (distance > crown + 8) continue;
-    const top = getTerrainHeight(tree.x, tree.z) + tree.size * 7.4 + CLEARANCE;
+    const top = getTerrainHeight(tree.x, tree.z, region) + tree.size * 7.4 + CLEARANCE;
     floor = Math.max(
       floor,
       ground +
@@ -62,10 +63,10 @@ export function getFlightFloor(x: number, z: number, region: RegionId = 'meadow'
         Math.max(0, top - ground - CLEARANCE) * smooth((crown + 8 - distance) / 8),
     );
   }
-  for (const obstacle of WORLD_OBSTACLES) {
+  for (const obstacle of getWorldObstacles(region)) {
     const distance = Math.hypot(x - obstacle.x, z - obstacle.z);
     const top =
-      getTerrainHeight(obstacle.x, obstacle.z) +
+      getTerrainHeight(obstacle.x, obstacle.z, region) +
       (obstacle.radius > 5 ? obstacle.radius * 2.65 : 9) +
       CLEARANCE;
     floor = Math.max(
@@ -77,19 +78,21 @@ export function getFlightFloor(x: number, z: number, region: RegionId = 'meadow'
   }
   for (const volume of REGION_VOLUMES[region]) {
     const influence = smooth((8 - distanceToVolume(x, z, volume)) / 8);
-    const top = getTerrainHeight(volume.x, volume.z) + volume.height + CLEARANCE;
+    const top = getTerrainHeight(volume.x, volume.z, region) + volume.height + CLEARANCE;
     floor = Math.max(floor, ground + CLEARANCE + Math.max(0, top - ground - CLEARANCE) * influence);
   }
   // Temple ring, and the large coral/volcano/gear/mushroom installations in the lake.
-  for (const landmark of [
-    { x: -8, z: -27, radius: 7, height: 12 },
-    { x: LAKE.x, z: LAKE.z, radius: 12, height: 26 },
-  ]) {
+  for (const landmark of region === 'water'
+    ? []
+    : [
+        { x: -8, z: -27, radius: 7, height: 12 },
+        { x: LAKE.x, z: LAKE.z, radius: 12, height: 26 },
+      ]) {
     const influence = smooth(
       (landmark.radius + 10 - Math.hypot(x - landmark.x, z - landmark.z)) / 10,
     );
     const top =
-      Math.max(getTerrainHeight(landmark.x, landmark.z), LAKE.waterLevel) +
+      Math.max(getTerrainHeight(landmark.x, landmark.z, region), LAKE.waterLevel) +
       landmark.height +
       CLEARANCE;
     floor = Math.max(floor, ground + CLEARANCE + Math.max(0, top - ground - CLEARANCE) * influence);
@@ -150,7 +153,7 @@ function safeLanding(point: WorldPoint, region: RegionId): boolean {
     point.z > bounds.maxZ - 1.5
   )
     return false;
-  if (!isWalkable(point.x, point.z, 1.1, region) || lakeDistance(point.x, point.z) < 1.18)
+  if (!isWalkable(point.x, point.z, 1.1, region) || lakeDistance(point.x, point.z, region) < 1.18)
     return false;
   if (
     getWorldTrees(region).some(
@@ -161,19 +164,21 @@ function safeLanding(point: WorldPoint, region: RegionId): boolean {
   if (REGION_VOLUMES[region].some((volume) => distanceToVolume(point.x, point.z, volume) < 2.1))
     return false;
   if (
-    WORLD_OBSTACLES.some(
+    getWorldObstacles(region).some(
       (obstacle) => Math.hypot(point.x - obstacle.x, point.z - obstacle.z) < obstacle.radius + 2.1,
     )
   )
     return false;
   if (Math.hypot(point.x + 8, point.z + 27) < 7) return false;
-  const height = getTerrainHeight(point.x, point.z);
+  const height = getTerrainHeight(point.x, point.z, region);
   return [
     [2, 0],
     [-2, 0],
     [0, 2],
     [0, -2],
-  ].every(([dx, dz]) => Math.abs(getTerrainHeight(point.x + dx, point.z + dz) - height) < 1.5);
+  ].every(
+    ([dx, dz]) => Math.abs(getTerrainHeight(point.x + dx, point.z + dz, region) - height) < 1.5,
+  );
 }
 
 /** Find open land under or near the rider, never water, a tree trunk or a ruin pillar. */

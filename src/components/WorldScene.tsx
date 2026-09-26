@@ -27,10 +27,10 @@ import { getAvailableDiscoverySites, type DiscoveryProgress } from '../game/disc
 import { getDiscoveryProximity, type DiscoveryProximity } from '../game/discoveryProximity';
 import { REGION_PLACES, REGION_VOLUMES, TEMPLE_ENTRANCE } from '../game/landmarks';
 import {
-  CRYSTAL_POSITIONS,
+  getCrystalPositions,
   SPAWN_POSITION,
-  WORLD_ZONES,
-  getTerrainHeight,
+  getRegionZones,
+  getTerrainHeight as worldTerrainHeight,
   getWorldTrees,
   isWalkable as worldIsWalkable,
   getNavigationPath as worldNavigationPath,
@@ -152,6 +152,9 @@ export default function WorldScene(props: WorldSceneProps) {
     const mount = mountRef.current;
     if (!mount) return;
     const region = propsRef.current.region ?? 'meadow';
+    const getTerrainHeight = (x: number, z: number) => worldTerrainHeight(x, z, region);
+    const WORLD_ZONES = getRegionZones(region);
+    const CRYSTAL_POSITIONS = getCrystalPositions(region);
     const WORLD_TREES = getWorldTrees(region);
     const isWalkable = (x: number, z: number, radius = 0.6) =>
       worldIsWalkable(x, z, radius, region);
