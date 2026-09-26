@@ -26,9 +26,10 @@ ANCHOR = '  location / {\n    proxy_pass http://127.0.0.1:3001;'
 SHA = re.compile(r'^[a-f0-9]{64}$')
 RELEASE = re.compile(r'^[a-z0-9][a-z0-9-]{0,79}$')
 SITE_FILE = re.compile(r'^site/(?:index\.html|favicon\.svg|release\.json|assets/[A-Za-z0-9_.-]+)$')
-LOCATIONS = '''# Managed by english-game; inherits the existing TLS server's access password.
+LOCATIONS = '''# Managed by english-game; independent access settings live outside versioned releases.
 location = /english-game { return 308 /english-game/$is_args$args; }
 location = /english-game/ {
+  include /etc/nginx/english-game-auth.conf;
   alias /opt/english-game/app/site/;
   index index.html;
   add_header Cache-Control "no-cache" always;
@@ -36,21 +37,25 @@ location = /english-game/ {
   add_header Referrer-Policy strict-origin-when-cross-origin always;
 }
 location = /english-game/index.html {
+  include /etc/nginx/english-game-auth.conf;
   alias /opt/english-game/app/site/index.html;
   add_header Cache-Control "no-cache" always;
   add_header X-Content-Type-Options nosniff always;
 }
 location = /english-game/favicon.svg {
+  include /etc/nginx/english-game-auth.conf;
   alias /opt/english-game/app/site/favicon.svg;
   add_header Cache-Control "no-cache" always;
   add_header X-Content-Type-Options nosniff always;
 }
 location = /english-game/release.json {
+  include /etc/nginx/english-game-auth.conf;
   alias /opt/english-game/app/site/release.json;
   add_header Cache-Control "no-cache" always;
   add_header X-Content-Type-Options nosniff always;
 }
 location ^~ /english-game/assets/ {
+  include /etc/nginx/english-game-auth.conf;
   alias /opt/english-game/shared/assets/;
   add_header Cache-Control "public, max-age=31536000, immutable";
   add_header X-Content-Type-Options nosniff always;
@@ -59,8 +64,8 @@ location ^~ /english-game/assets/ {
 location ^~ /english-game/ { return 404; }
 '''
 # The first staging template used a file alias on a directory URI; nginx's
-# index module appended index.html again. Only this exact old template may be
-# upgraded automatically; unrelated/local route edits still stop activation.
+# index module appended index.html again. Only that alias variation with the
+# current independent auth may be upgraded; shared auth/local edits are rejected.
 LEGACY_LOCATIONS = LOCATIONS.replace(
     '  alias /opt/english-game/app/site/;\n  index index.html;',
     '  alias /opt/english-game/app/site/index.html;', 1)

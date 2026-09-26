@@ -10,6 +10,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import tarfile
 import tempfile
 import unittest
@@ -92,6 +93,7 @@ class StaticReleaseSafetyTests(unittest.TestCase):
         self.helper.NGINX_LOCATIONS = self.base / 'english-game.locations.conf'
         self.helper.INCLUDE = '  include {};\n'.format(self.helper.NGINX_LOCATIONS)
         self.helper.LOCATIONS = self.helper.LOCATIONS.replace('/opt/english-game', str(self.helper.ROOT))
+        self.helper.LEGACY_LOCATIONS = self.helper.LEGACY_LOCATIONS.replace('/opt/english-game', str(self.helper.ROOT))
         self.commands = CommandStub()
         self.helper.run = self.commands
 
@@ -148,6 +150,7 @@ class StaticReleaseSafetyTests(unittest.TestCase):
             self.assertFalse(self.helper.NGINX_LOCATIONS.exists())
         else:
             self.assertEqual(self.helper.NGINX_LOCATIONS.read_bytes(), snippet)
+            self.assert_game_auth(self.helper.NGINX_LOCATIONS.read_text())
         current = self.helper.ROOT / 'app'
         if previous is None:
             self.assertFalse(current.exists())
@@ -156,6 +159,35 @@ class StaticReleaseSafetyTests(unittest.TestCase):
             self.assertTrue(current.is_symlink())
             self.assertEqual(os.readlink(str(current)), str(previous))
         self.assertFalse((self.helper.ROOT / 'app.pending').is_symlink())
+
+    def assert_game_auth(self, snippet):
+        locations = re.findall(r'^location ([^{]+)\{([^}]+)\}', snippet, re.MULTILINE)
+        static_locations = {name.strip(): body for name, body in locations if 'alias ' in body}
+        self.assertEqual(set(static_locations), {
+            '= /english-game/', '= /english-game/index.html', '= /english-game/favicon.svg',
+            '= /english-game/release.json', '^~ /english-game/assets/',
+        })
+        for name, body in static_locations.items():
+            with self.subTest(location=name):
+                self.assertEqual(body.count('  include /etc/nginx/english-game-auth.conf;\n'), 1)
+                self.assertNotIn('auth_basic', body)
+                self.assertNotIn('bigdream.htpasswd', body)
+
+    def test_every_static_location_requires_independent_game_auth(self):
+        self.assert_game_auth(self.helper.LOCATIONS)
+        self.assert_game_auth(self.helper.LEGACY_LOCATIONS)
+
+    def test_nginx_plan_only_adds_game_routes_and_preserves_bigdream_auth(self):
+        planned = self.helper.nginx_plan(BASE_CONFIG)
+        self.assertEqual(planned.replace(self.helper.INCLUDE, ''), BASE_CONFIG)
+        self.assertEqual(planned.count('auth_basic "BigDream";'), 1)
+        self.assertEqual(planned.count('auth_basic_user_file /etc/nginx/bigdream.htpasswd;'), 1)
+        self.assertEqual(self.helper.nginx_plan(planned), planned)
+        for changed in (BASE_CONFIG.replace('auth_basic "BigDream";', 'auth_basic off;'),
+                        BASE_CONFIG.replace('/etc/nginx/bigdream.htpasswd', '/etc/nginx/english-game.htpasswd')):
+            with self.subTest(config=changed):
+                with self.assertRaisesRegex(ValueError, 'Existing access protection changed'):
+                    self.helper.nginx_plan(changed)
 
     def test_valid_archive_round_trip(self):
         archive, archive_sha = self.package()
@@ -291,8 +323,53 @@ class StaticReleaseSafetyTests(unittest.TestCase):
         self.assertEqual(self.helper.NGINX_CONFIG.read_text(), self.helper.nginx_plan(BASE_CONFIG))
         self.assertEqual(self.helper.NGINX_CONFIG.read_text().count(self.helper.INCLUDE), 1)
         self.assertEqual(self.helper.NGINX_LOCATIONS.read_text(), self.helper.LOCATIONS)
+        self.assert_game_auth(self.helper.NGINX_LOCATIONS.read_text())
         self.assertEqual(Path(result['nginxBackup']).read_text(), BASE_CONFIG)
         self.assertEqual(self.commands.counts, {'nginx': 2, 'backend': 2, 'reload': 1, 'auth': 3})
+
+    def test_deployment_and_code_rollback_keep_independent_auth(self):
+        previous = self.previous_release()
+        candidate = self.staged('r-new', 'index-new.js', b'new bundle')
+        config = self.helper.NGINX_CONFIG.read_bytes()
+        snippet = self.helper.NGINX_LOCATIONS.read_bytes()
+        self.assert_game_auth(snippet.decode())
+        self.assertEqual(self.helper.activate('r-new')['phase'], 'active')
+        self.assert_restored(candidate, config, snippet)
+        self.assertEqual(self.helper.activate('r-old')['phase'], 'active')
+        self.assert_restored(previous, config, snippet)
+
+    def test_shared_auth_or_locally_modified_routes_stop_before_mutation(self):
+        previous = self.previous_release()
+        self.staged('r-new', 'index-new.js', b'new bundle')
+        config = self.helper.NGINX_CONFIG.read_bytes()
+        include = '  include /etc/nginx/english-game-auth.conf;\n'
+        variants = [
+            self.helper.LOCATIONS.replace(include, '').replace(
+                '# Managed by english-game; independent access settings live outside versioned releases.',
+                "# Managed by english-game; inherits the existing TLS server's access password."),
+            self.helper.LOCATIONS.replace(include, '', 1),
+            self.helper.LOCATIONS.replace(include, '  auth_basic "BigDream";\n', 1),
+            self.helper.LOCATIONS + '# Local operator edit\n',
+        ]
+        for index, snippet in enumerate(variants):
+            with self.subTest(variant=index):
+                self.helper.NGINX_LOCATIONS.write_text(snippet)
+                with self.assertRaisesRegex(ValueError, 'Existing game route has local changes'):
+                    self.helper.activate('r-new')
+                self.assertEqual(self.helper.NGINX_CONFIG.read_bytes(), config)
+                self.assertEqual(self.helper.NGINX_LOCATIONS.read_text(), snippet)
+                self.assertEqual(os.readlink(str(self.helper.ROOT / 'app')), str(previous))
+                self.assertEqual(self.status('r-new')['phase'], 'staged')
+                self.assertEqual(self.commands.calls, [])
+
+    def test_legacy_alias_upgrade_preserves_independent_auth(self):
+        self.previous_release()
+        self.helper.NGINX_LOCATIONS.write_text(self.helper.LEGACY_LOCATIONS)
+        self.assert_game_auth(self.helper.NGINX_LOCATIONS.read_text())
+        self.staged('r-new', 'index-new.js', b'new bundle')
+        self.assertEqual(self.helper.activate('r-new')['phase'], 'active')
+        self.assertEqual(self.helper.NGINX_LOCATIONS.read_text(), self.helper.LOCATIONS)
+        self.assert_game_auth(self.helper.NGINX_LOCATIONS.read_text())
 
     def test_changed_staged_file_stops_before_nginx_mutation(self):
         candidate = self.staged()
