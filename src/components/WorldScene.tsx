@@ -39,6 +39,7 @@ import {
 } from '../game/world';
 import { createHero } from '../rendering/models/hero';
 import { createPet } from '../rendering/models/pets';
+import { createPetSanctuary } from '../rendering/scenery/petSanctuary';
 import type { SceneryFactory } from '../rendering/scenery/types';
 import { createCleanupScope } from '../rendering/world/cleanupScope';
 import { createWorldEnvironment } from '../rendering/world/createWorldEnvironment';
@@ -227,7 +228,11 @@ export default function WorldScene(props: WorldSceneProps) {
       const scene = new THREE.Scene();
       lifetime.add(() => scene.clear());
       scene.background = new THREE.Color(theme.fog);
-      scene.fog = new THREE.Fog(theme.fog, region === 'fire' ? 36 : 43, 168);
+      scene.fog = new THREE.Fog(
+        theme.fog,
+        region === 'meadow' ? 76 : region === 'fire' ? 36 : 43,
+        region === 'meadow' ? 238 : 168,
+      );
       const camera = new THREE.PerspectiveCamera(51, 1, 0.12, 480);
       const environment = createWorldEnvironment(region, propsRef.current.treasureOpened);
       lifetime.add(environment.dispose);
@@ -296,6 +301,9 @@ export default function WorldScene(props: WorldSceneProps) {
       replaceCompanionRef.current = installCompanion;
       installCompanion();
       const wildPosition = { x: -10.8, z: -21.7 };
+      const sanctuary = createPetSanctuary(region, wildPosition.x, wildPosition.z);
+      lifetime.add(sanctuary.dispose);
+      scene.add(sanctuary.group);
       const wildAnchor = new THREE.Group();
       wildAnchor.position.set(
         wildPosition.x,
@@ -327,13 +335,17 @@ export default function WorldScene(props: WorldSceneProps) {
         propsRef.current.onEnterTemple?.();
       };
       const { halo: wildHalo, mark: wildMark } = environment.createWildMarkers(wildAnchor);
+      let wildHeight = 2.6;
       const installWildPet = () => {
         if (wildPet) {
           wildAnchor.remove(wildPet.group);
           wildPet.dispose();
         }
         wildPet = propsRef.current.wildPetId ? createPet(propsRef.current.wildPetId, 1) : null;
-        if (wildPet) wildAnchor.add(wildPet.group);
+        if (wildPet) {
+          wildHeight = Math.max(2.6, new THREE.Box3().setFromObject(wildPet.group).max.y + 0.45);
+          wildAnchor.add(wildPet.group);
+        }
         wildAnchor.visible = !!wildPet;
         if (currentlyNearWild) {
           currentlyNearWild = false;
@@ -1189,6 +1201,7 @@ export default function WorldScene(props: WorldSceneProps) {
               : 0);
           companion?.animate(visualTime, followerMotion.blend, petBounce, followerMotion);
         }
+        sanctuary.update(visualTime, !!wildPet && !!propsRef.current.canCapture);
         if (wildPet) {
           wildPet.animate(visualTime, 0, 0);
           if (!paused && Math.hypot(player.x - wildPosition.x, player.z - wildPosition.z) < 12)
@@ -1197,7 +1210,7 @@ export default function WorldScene(props: WorldSceneProps) {
               Math.atan2(wildPosition.x - player.x, wildPosition.z - player.z),
               1 - Math.exp(-delta * 2),
             );
-          wildMark.position.y = 2.6 + Math.sin(visualTime * 1.4) * 0.16;
+          wildMark.position.y = wildHeight + Math.sin(visualTime * 1.4) * 0.16;
           wildMark.rotation.y = visualTime * 0.6;
           wildHalo.scale.setScalar(1 + Math.sin(visualTime * 1.8) * 0.05);
         }

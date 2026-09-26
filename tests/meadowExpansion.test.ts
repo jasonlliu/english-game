@@ -94,12 +94,22 @@ test('expanded structures are solid and their roof footprints participate in fli
   assert(isWalkable(70, 50), 'The garden arch must remain open at ground level');
 });
 
-test('all five animal species start on traversable land, with visible animals near arrival', () => {
+test('all five species remain discoverable in sparse distinct habitats, with a quiet arrival', () => {
   const { animals } = createWildlifeSimulation();
-  assert.equal(animals.length, 23);
+  assert.equal(animals.length, 7);
   for (const kind of ['deer', 'rabbit', 'bird', 'fox', 'butterfly']) {
-    assert(animals.some((animal) => animal.kind === kind && distance(animal, SPAWN_POSITION) < 18));
+    assert(animals.some((animal) => animal.kind === kind));
   }
+  assert.deepEqual(
+    animals.filter((animal) => distance(animal, SPAWN_POSITION) < 18).map((animal) => animal.kind),
+    ['bird'],
+  );
+  assert(animals.filter((animal) => animal.kind === 'deer').every((animal) => animal.x > 15));
+  assert(
+    animals
+      .filter((animal) => !['bird', 'deer'].includes(animal.kind))
+      .every((animal) => distance(animal, SPAWN_POSITION) > 35),
+  );
   assert(animals.every((animal) => isWalkable(animal.x, animal.z)));
 });
 
@@ -158,10 +168,18 @@ test('animal feeding and rest cycles stay local and traversable over a long quie
       activities.get(animal.id)!.add(animal.activity);
       travelled.set(animal.id, travelled.get(animal.id)! + animal.speed * 0.05);
       assert(isWalkable(animal.x, animal.z), animal.id);
-      assert(distance(animal, animal.home) < 12, `${animal.id} must remain in its habitat`);
+      assert(
+        distance(animal, animal.home) <= animal.homeRadius,
+        `${animal.id} must remain in its habitat`,
+      );
     }
   }
   for (const animal of simulation.animals) {
+    if (animal.kind === 'bird') {
+      assert.equal(animal.behavior, 'perch', 'The guide bird rests when no traveller is nearby');
+      assert.equal(travelled.get(animal.id), 0);
+      continue;
+    }
     assert.equal(activities.get(animal.id)!.size, 3, `${animal.id} feeds, rests and wanders`);
     assert(travelled.get(animal.id)! > 1, `${animal.id} can reach another feeding patch`);
   }
@@ -200,7 +218,7 @@ test('the observation ring follows the selected animal, switches and clears, and
   try {
     assert.equal(marker.visible, false);
     const before = { x: fox.x, z: fox.z };
-    for (let i = 0; i < 130; i++) {
+    for (let i = 0; i < 260; i++) {
       wildlife.update(i * 0.05, { ...frame, observingId: fox.id });
       assert.equal(marker.visible, true);
       assert.equal(marker.position.x, fox.x);
@@ -233,7 +251,7 @@ test('wildlife uses three shared draw batches, freezes poses while paused and re
   });
   assert.equal(meshes.length, 3);
   assert.equal(new Set(meshes.map((mesh) => mesh.material)).size, 1);
-  assert(meshes.reduce((sum, mesh) => sum + mesh.count, 0) < 500);
+  assert(meshes.reduce((sum, mesh) => sum + mesh.count, 0) < 220);
   wildlife.update(1, { position: { x: -5, z: 20 }, running: true, delta: 1 / 60 });
   const paused = meshes.map((mesh) => Array.from(mesh.instanceMatrix.array));
   wildlife.update(10000, { position: { x: 0, z: 0 }, running: true, delta: 0 });

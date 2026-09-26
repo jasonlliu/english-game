@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { modelKit } from './modelKit';
+import { sculptedForm, sculptedPanel, type FormSection } from './emberGeometry';
 import {
   quadrupedPhase,
   readLocomotion,
@@ -6,215 +8,113 @@ import {
   sampleSuspension,
   solveLeg,
 } from './locomotion';
-import type { ModelRig } from './types';
-type Point = [number, number, number];
-type Radius = [number, number];
-/** An original copper-furred woodland companion. Forward is -Z; feet sit on Y=0. */
+import type { ModelRig, Point } from './types';
+
+/** Original solar dragon. One flowing torso, an authored wedge-shaped head and articulated limbs.
+ * Forward is -Z; locomotion keeps the same support-foot and saddle contracts at every growth stage. */
 export function createCompanion(stage: 0 | 1 | 2 | 3): ModelRig {
-  const group = new THREE.Group();
-  group.name = `ember-companion-${stage}`;
-  const rig = new THREE.Group();
-  group.add(rig);
-  const geometries = new Set<THREE.BufferGeometry>();
-  const materials = new Set<THREE.Material>();
+  const k = modelKit();
   try {
-    const standard = (parameters: THREE.MeshStandardMaterialParameters) => {
-      const material = new THREE.MeshStandardMaterial({
-        roughness: 0.78,
-        metalness: 0.02,
-        ...parameters,
-      });
-      materials.add(material);
-      return material;
-    };
-    const physical = (parameters: THREE.MeshPhysicalMaterialParameters) => {
-      const material = new THREE.MeshPhysicalMaterial(parameters);
-      materials.add(material);
-      return material;
-    };
-    const fur = standard({ color: stage === 0 ? '#e6d3a4' : '#b85f32' });
-    const sunFur = standard({ color: stage === 0 ? '#f1e1ba' : '#d98548' });
-    const darkFur = standard({ color: '#483328' });
-    const cream = standard({ color: '#f7e7bd' });
-    const innerEar = standard({ color: '#ac7062', roughness: 0.93 });
-    const noseMat = physical({ color: '#292724', roughness: 0.34, clearcoat: 0.5 });
-    const leather = standard({ color: '#523e2c', roughness: 0.9 });
-    const leatherLight = standard({ color: '#956c40', roughness: 0.87 });
-    const gold = standard({ color: '#d8b769', metalness: 0.52, roughness: 0.37 });
-    const jade = standard({ color: '#367477', metalness: 0.28, roughness: 0.43 });
-    const cyan = standard({
-      color: '#8ce5df',
-      emissive: '#26baad',
-      emissiveIntensity: 0.42,
-      roughness: 0.28,
-      metalness: 0.12,
+    const { group, rig, material, mesh, soft, pivot, tapered, tube } = k;
+    group.name = `ember-companion-${stage}`;
+    const amber = material(stage === 0 ? '#eda94c' : '#d47a2e', { roughness: 0.68 });
+    const sun = material('#eea94e', { roughness: 0.62 });
+    const ivory = material('#f5e5bc', { roughness: 0.7 });
+    const navy = material('#284754', { roughness: 0.62, metalness: 0.07 });
+    const gold = material('#dda750', { roughness: 0.52, metalness: 0.2 });
+    const dark = material('#132d35', { roughness: 0.47 });
+    const glow = material('#8bccc1', {
+      emissive: '#328d7b',
+      emissiveIntensity: 0.12,
+      roughness: 0.4,
     });
-    const iris = physical({
-      color: '#dcac44',
-      roughness: 0.18,
-      clearcoat: 1,
-      clearcoatRoughness: 0.06,
-    });
-    const pupil = physical({ color: '#14272a', roughness: 0.05, clearcoat: 1 });
-    const glint = standard({
-      color: '#ffffff',
-      emissive: '#f5fffa',
-      emissiveIntensity: 0.6,
-      roughness: 0.15,
-    });
-    const sphere = new THREE.SphereGeometry(1, 32, 24);
-    geometries.add(sphere);
-    function mesh(
+    const eyeColor = material('#d5b853', { roughness: 0.28 });
+    const white = material('#fff8e5', { roughness: 0.45 });
+    const leather = material('#443d35', { roughness: 0.88 });
+    const form = (
       parent: THREE.Object3D,
-      geometry: THREE.BufferGeometry,
-      material: THREE.Material,
-      position: Point = [0, 0, 0],
-      scale: Point = [1, 1, 1],
-    ) {
-      geometries.add(geometry);
-      const object = new THREE.Mesh(geometry, material);
-      object.position.set(...position);
-      object.scale.set(...scale);
-      object.castShadow = true;
-      object.receiveShadow = true;
-      parent.add(object);
+      mat: THREE.Material,
+      sections: FormSection[],
+      axis: 'z' | 'y' = 'z',
+      belly = false,
+    ) => {
+      const object: THREE.Mesh = mesh(parent, sculptedForm(sections, axis, belly), mat);
+      if (belly) object.material = [mat, ivory];
       return object;
-    }
-    const soft = (
-      parent: THREE.Object3D,
-      material: THREE.Material,
-      position: Point,
-      scale: Point,
-    ) => mesh(parent, sphere, material, position, scale);
-    /** Smooth tapered volumes, used for curved fur locks, tail, limbs and horns. */
-    function tapered(
-      parent: THREE.Object3D,
-      points: Point[],
-      radii: Radius[],
-      material: THREE.Material,
-      resolution = 28,
-    ) {
-      const path = new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3(...point)));
-      const frames = path.computeFrenetFrames(resolution, false);
-      const vertices: number[] = [];
-      const indices: number[] = [];
-      const sides = 16;
-      for (let i = 0; i <= resolution; i += 1) {
-        const t = i / resolution;
-        const center = path.getPointAt(t);
-        const at = t * (radii.length - 1);
-        const lower = Math.min(Math.floor(at), radii.length - 2);
-        const amount = at - lower;
-        const rx = THREE.MathUtils.lerp(radii[lower][0], radii[lower + 1][0], amount);
-        const ry = THREE.MathUtils.lerp(radii[lower][1], radii[lower + 1][1], amount);
-        for (let j = 0; j <= sides; j += 1) {
-          const angle = (j / sides) * Math.PI * 2;
-          const vertex = center
-            .clone()
-            .addScaledVector(frames.normals[i], Math.cos(angle) * rx)
-            .addScaledVector(frames.binormals[i], Math.sin(angle) * ry);
-          vertices.push(vertex.x, vertex.y, vertex.z);
-          if (i < resolution && j < sides) {
-            const a = i * (sides + 1) + j;
-            const b = a + sides + 1;
-            indices.push(a, a + 1, b, a + 1, b + 1, b);
-          }
-        }
-      }
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-      geometry.setIndex(indices);
-      geometry.computeVertexNormals();
-      return mesh(parent, geometry, material);
-    }
-    function line(
-      parent: THREE.Object3D,
-      points: Point[],
-      radius: number,
-      material: THREE.Material,
-    ) {
-      return mesh(
-        parent,
-        new THREE.TubeGeometry(
-          new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3(...point))),
-          28,
-          radius,
-          8,
-          false,
-        ),
-        material,
-      );
-    }
-    function leafGeometry(width: number, height: number, depth = 0.06) {
-      const outline = new THREE.Shape();
-      outline.moveTo(-width * 0.49, 0);
-      outline.bezierCurveTo(
-        -width * 0.65,
-        height * 0.38,
-        -width * 0.18,
-        height * 0.82,
-        width * 0.1,
-        height,
-      );
-      outline.bezierCurveTo(
-        width * 0.39,
-        height * 0.75,
-        width * 0.6,
-        height * 0.26,
-        width * 0.44,
-        0,
-      );
-      outline.quadraticCurveTo(0, -height * 0.12, -width * 0.49, 0);
-      return new THREE.ExtrudeGeometry(outline, {
-        depth,
-        bevelEnabled: true,
-        bevelSegments: 4,
-        steps: 1,
-        bevelSize: 0.023,
-        bevelThickness: 0.025,
-        curveSegments: 20,
-      });
-    }
-    // The haunches, belly and high shoulder make one flowing quadruped silhouette.
-    soft(rig, fur, [0, 0.82, 0.2], [0.46, 0.43, 0.76]);
-    soft(rig, sunFur, [0, 1.0, -0.35], [0.43, 0.47, 0.42]);
-    soft(rig, fur, [0, 0.84, 0.63], [0.43, 0.43, 0.42]);
-    soft(rig, cream, [0, 0.94, -0.57], [0.35, 0.41, 0.24]);
-    tapered(
-      rig,
+    };
+    const shield = sculptedPanel(
       [
-        [0, 1.03, -0.59],
-        [0, 0.75, -0.63],
-        [0, 0.53, -0.48],
+        [-0.45, 0.24],
+        [-0.28, 0.5],
+        [0.24, 0.4],
+        [0.48, 0.08],
+        [0.21, -0.37],
+        [0, -0.52],
+        [-0.31, -0.22],
       ],
-      [
-        [0.28, 0.14],
-        [0.22, 0.12],
-        [0.008, 0.008],
-      ],
-      cream,
+      0.1,
     );
-    // Layered mane locks sweep away from the face instead of forming a flat bib.
+    const plate = (parent: THREE.Object3D, mat: THREE.Material, p: Point, s: Point) =>
+      mesh(parent, shield, mat, p, s);
+    const crystalGeometry = new THREE.OctahedronGeometry(1);
+    const crystal = (parent: THREE.Object3D, p: Point, s: Point) =>
+      mesh(parent, crystalGeometry, glow, p, s);
+    // Tiny claws share a low-resolution closed surface; they do not need horn-sized tubes.
+    const clawGeometry = sculptedForm(
+      [
+        { center: [0, -0.052, -0.105], width: 0.002, depth: 0.002 },
+        { center: [0, -0.025, -0.07], width: 0.023, depth: 0.017 },
+        { center: [0, 0, 0], width: 0.031, depth: 0.023 },
+      ],
+      'z',
+      false,
+      8,
+      8,
+    );
+
+    // Neck, chest, waist and haunch flow through the same closed surface. A continuous pale
+    // ventral material region replaces the former stack of separate chest ornaments.
+    const body = form(
+      rig,
+      amber,
+      [
+        { center: [0, 1.28, -0.72], width: 0.16, depth: 0.18 },
+        { center: [0, 1.2, -0.51], width: 0.25, depth: 0.3 },
+        { center: [0, 1.01, -0.28], width: 0.39, depth: 0.39 },
+        { center: [0, 0.87, 0.05], width: 0.36, depth: 0.31 },
+        { center: [0, 0.83, 0.33], width: 0.32, depth: 0.27 },
+        { center: [0, 0.84, 0.57], width: 0.4, depth: 0.33 },
+        { center: [0, 0.87, 0.81], width: 0.24, depth: 0.21 },
+        { center: [0, 0.88, 0.94], width: 0.11, depth: 0.13 },
+      ],
+      'z',
+      true,
+    );
+    body.name = 'ember-sculpted-torso';
     for (const side of [-1, 1]) {
-      for (let layer = 0; layer < 3; layer += 1) {
-        const x = side * (0.22 + layer * 0.063);
-        const y = 1.21 - layer * 0.17;
-        tapered(
-          rig,
-          [
-            [x, y, -0.45],
-            [x + side * 0.17, y - 0.09, -0.29],
-            [x + side * 0.12, y - 0.25, -0.16],
-          ],
-          [
-            [0.16 - layer * 0.02, 0.11],
-            [0.13, 0.08],
-            [0.008, 0.008],
-          ],
-          cream,
-        );
+      if (stage >= 2) {
+        const shoulder = plate(rig, navy, [side * 0.36, 1.13, -0.28], [0.51, 0.56, 0.95]);
+        shoulder.rotation.y = -side * 1.06;
+        shoulder.rotation.z = -side * 0.25;
+        const trim = plate(rig, gold, [side * 0.42, 1.14, -0.3], [0.32, 0.4, 0.6]);
+        trim.rotation.copy(shoulder.rotation);
+        const gem = crystal(rig, [side * 0.45, 1.23, -0.28], [0.05, 0.105, 0.06]);
+        gem.rotation.z = side * -0.3;
       }
+      // One swept cheek-to-shoulder ruff, with a strong silhouette instead of a necklace of balls.
+      tapered(
+        rig,
+        ivory,
+        [
+          [side * 0.22, 1.26, -0.49],
+          [side * 0.47, 1.22, -0.3],
+          [side * 0.58, 1.27, -0.08],
+        ],
+        [0.105, 0.085, 0.004],
+        0.48,
+      );
     }
+
     const legs: Array<{
       pivot: THREE.Group;
       knee: THREE.Group;
@@ -223,478 +123,300 @@ export function createCompanion(stage: 0 | 1 | 2 | 3): ModelRig {
     }> = [];
     for (const side of [-1, 1]) {
       for (const front of [true, false]) {
-        const pivot = new THREE.Group();
-        pivot.name = `pet-hip-${legs.length}`;
-        pivot.position.set(side * 0.3, 0.86, front ? -0.43 : 0.54);
-        rig.add(pivot);
-        soft(pivot, fur, [0, -0.13, 0.035], [front ? 0.16 : 0.21, 0.3, front ? 0.18 : 0.26]);
-        tapered(
-          pivot,
+        const leg = pivot(rig, [side * 0.3, 0.86, front ? -0.43 : 0.54]);
+        leg.name = `pet-hip-${legs.length}`;
+        const upper = form(
+          leg,
+          amber,
           [
-            [0, -0.16, 0],
-            [0, -0.3, front ? 0.02 : 0.08],
-            [0, -0.39, 0],
+            {
+              center: [0, front ? 0.27 : 0.19, 0.035],
+              width: front ? 0.085 : 0.13,
+              depth: front ? 0.12 : 0.18,
+            },
+            {
+              center: [0, -0.02, front ? 0.02 : 0.07],
+              width: front ? 0.16 : 0.205,
+              depth: front ? 0.15 : 0.23,
+            },
+            {
+              center: [0, -0.19, front ? 0.025 : 0.055],
+              width: front ? 0.115 : 0.16,
+              depth: front ? 0.13 : 0.17,
+            },
+            { center: [0, -0.35, 0.0], width: 0.087, depth: 0.092 },
+            { center: [0, -0.43, 0], width: 0.075, depth: 0.075 },
           ],
-          [
-            [0.13, 0.14],
-            [0.1, 0.115],
-            [0.1, 0.11],
-          ],
-          fur,
+          'y',
         );
-        const knee = new THREE.Group();
+        upper.name = `ember-upper-limb-${legs.length}`;
+        const knee = pivot(leg, [0, -0.39, 0]);
         knee.name = `pet-knee-${legs.length}`;
-        knee.position.y = -0.39;
-        pivot.add(knee);
-        soft(knee, fur, [0, -0.08, 0.01], [0.105, 0.14, 0.12]);
-        soft(knee, darkFur, [0, -0.19, 0.005], [0.115, 0.18, 0.12]);
-        const ankle = new THREE.Group();
+        form(
+          knee,
+          navy,
+          [
+            { center: [0, 0.055, 0], width: 0.085, depth: 0.085 },
+            { center: [0, -0.035, 0.006], width: 0.094, depth: 0.1 },
+            { center: [0, -0.18, 0.013], width: 0.07, depth: 0.078 },
+            { center: [0, -0.315, 0], width: 0.086, depth: 0.08 },
+            { center: [0, -0.375, 0], width: 0.075, depth: 0.065 },
+          ],
+          'y',
+        );
+        const ankle = pivot(knee, [0, -0.345, 0]);
         ankle.name = `pet-ankle-${legs.length}`;
-        ankle.position.y = -0.345;
-        knee.add(ankle);
-        soft(ankle, darkFur, [0, 0, -0.075], [0.17, 0.125, 0.225]);
+        form(ankle, navy, [
+          { center: [0, -0.01, -0.28], width: 0.095, depth: 0.065 },
+          { center: [0, -0.005, -0.21], width: 0.16, depth: 0.12 },
+          { center: [0, 0.005, -0.08], width: 0.15, depth: 0.13 },
+          { center: [0, 0.025, 0.05], width: 0.095, depth: 0.1 },
+          { center: [0, 0.02, 0.09], width: 0.055, depth: 0.06 },
+        ]);
         for (const toe of [-1, 0, 1]) {
-          soft(ankle, darkFur, [toe * 0.086, -0.01, -0.19], [0.06, 0.084, 0.098]);
-          soft(ankle, cream, [toe * 0.086, -0.016, -0.26], [0.023, 0.027, 0.045]);
+          mesh(ankle, clawGeometry, ivory, [toe * 0.081, -0.005, -0.23]);
         }
-        legs.push({ pivot, knee, ankle, front });
+        legs.push({ pivot: leg, knee, ankle, front });
       }
     }
-    const head = new THREE.Group();
-    head.position.set(0, 1.24, -0.61);
-    rig.add(head);
-    soft(head, sunFur, [0, 0.025, -0.045], [0.405, 0.35, 0.36]);
-    soft(head, fur, [0, 0.1, 0.11], [0.36, 0.31, 0.27]);
-    // The narrow bridge and lifted cream cheeks create a foxlike face.
-    soft(head, sunFur, [0, -0.065, -0.32], [0.23, 0.185, 0.29]);
-    soft(head, cream, [0, -0.16, -0.36], [0.225, 0.13, 0.25]);
-    for (const side of [-1, 1]) {
-      soft(head, cream, [side * 0.2, -0.115, -0.235], [0.2, 0.155, 0.2]);
-      tapered(
-        head,
-        [
-          [side * 0.28, -0.02, -0.1],
-          [side * 0.43, -0.025, -0.01],
-          [side * 0.51, 0.045, 0.16],
-        ],
-        [
-          [0.135, 0.13],
-          [0.095, 0.09],
-          [0.007, 0.007],
-        ],
-        cream,
-      );
-    }
-    const nose = soft(head, noseMat, [0, -0.055, -0.6], [0.113, 0.074, 0.072]);
-    nose.rotation.x = -0.18;
-    line(
+
+    const head = pivot(rig, [0, 1.31, -0.67]);
+    head.name = 'ember-head';
+    const cranium = form(
       head,
+      sun,
       [
-        [0, -0.113, -0.592],
-        [0, -0.155, -0.578],
-        [-0.1, -0.176, -0.535],
+        { center: [0, -0.03, -0.53], width: 0.145, depth: 0.095 },
+        { center: [0, -0.025, -0.43], width: 0.215, depth: 0.13 },
+        { center: [0, 0.015, -0.29], width: 0.28, depth: 0.2 },
+        { center: [0, 0.065, -0.11], width: 0.335, depth: 0.28 },
+        { center: [0, 0.055, 0.09], width: 0.28, depth: 0.26 },
+        { center: [0, 0.025, 0.25], width: 0.15, depth: 0.155 },
+        { center: [0, 0.015, 0.29], width: 0.055, depth: 0.065 },
       ],
-      0.008,
-      darkFur,
+      'z',
+      true,
     );
-    line(
-      head,
+    cranium.name = 'ember-sculpted-head';
+    const eyeOutline = sculptedPanel(
       [
-        [0, -0.155, -0.578],
-        [0.1, -0.176, -0.535],
+        [-0.14, 0.02],
+        [-0.087, 0.093],
+        [0.02, 0.106],
+        [0.135, 0.047],
+        [0.102, -0.04],
+        [-0.032, -0.058],
+        [-0.115, -0.026],
       ],
-      0.008,
-      darkFur,
+      0.034,
     );
     const eyeGroups: THREE.Group[] = [];
     for (const side of [-1, 1]) {
-      const eye = new THREE.Group();
-      eye.position.set(side * 0.258, 0.106, -0.307);
-      eye.rotation.y = side * -0.3;
-      head.add(eye);
-      soft(eye, darkFur, [0, 0, 0.005], [0.142, 0.143, 0.058]);
-      soft(eye, iris, [0, 0, -0.023], [0.113, 0.115, 0.052]);
-      soft(eye, pupil, [-side * 0.009, -0.002, -0.068], [0.063, 0.089, 0.026]);
-      soft(eye, glint, [-0.032, 0.043, -0.086], [0.029, 0.031, 0.013]);
-      soft(eye, glint, [0.034, -0.036, -0.088], [0.012, 0.013, 0.009]);
-      eyeGroups.push(eye);
-      line(
+      soft(head, dark, [side * 0.097, 0.033, -0.51], [0.018, 0.012, 0.012], true);
+      tube(
         head,
+        dark,
         [
-          [side * 0.13, 0.23, -0.3],
-          [side * 0.25, 0.256, -0.315],
-          [side * 0.37, 0.215, -0.24],
+          [side * 0.04, -0.085, -0.53],
+          [side * 0.145, -0.083, -0.47],
+          [side * 0.228, -0.058, -0.33],
         ],
-        0.033,
-        fur,
+        0.006,
       );
-      soft(head, cream, [side * 0.236, 0.281, -0.254], [0.089, 0.043, 0.055]);
+      const eye = pivot(head, [side * 0.26, 0.14, -0.215]);
+      eye.rotation.y = -side * 0.61;
+      eye.rotation.z = side * -0.12;
+      eye.scale.set(side * 0.88, 0.84, 1);
+      mesh(eye, eyeOutline, navy, [0, 0, 0], [1.13, 1.18, 1]);
+      mesh(eye, eyeOutline, white, [0, 0, -0.018], [0.98, 0.92, 1]);
+      soft(eye, eyeColor, [0, 0.012, -0.06], [0.049, 0.066, 0.018], true);
+      soft(eye, dark, [0, 0.012, -0.076], [0.018, 0.049, 0.009], true);
+      soft(eye, white, [-0.023, 0.043, -0.094], [0.016, 0.02, 0.006], true);
+      eyeGroups.push(eye);
     }
-    const ears: Array<{
-      group: THREE.Group;
-      rest: number;
-    }> = [];
+    const crest = plate(head, navy, [0, 0.274, -0.137], [0.24, 0.36, 0.44]);
+    crest.rotation.x = -0.7;
+    const ears: Array<{ group: THREE.Group; rest: number }> = [];
     for (const side of [-1, 1]) {
-      const ear = new THREE.Group();
-      ear.position.set(side * 0.25, 0.257, 0.025);
-      ear.rotation.z = side * -0.19;
-      ear.rotation.y = side * 0.12;
-      head.add(ear);
-      mesh(ear, leafGeometry(0.31, 0.44, 0.095), fur, [0, 0, -0.02]);
-      mesh(ear, leafGeometry(0.19, 0.31, 0.012), innerEar, [0, 0.055, -0.066]);
-      tapered(
-        ear,
-        [
-          [-0.02, 0.01, -0.08],
-          [0.03, 0.13, -0.08],
-          [0.012, 0.22, -0.062],
-        ],
-        [
-          [0.073, 0.03],
-          [0.047, 0.02],
-          [0.004, 0.004],
-        ],
-        cream,
-      );
+      const ear = pivot(head, [side * 0.265, 0.12, 0.135]);
+      ear.rotation.z = -side * 0.95;
+      ear.rotation.y = side * 0.45;
+      const outer = plate(ear, navy, [0, 0.13, 0], [0.18, 0.43, 0.42]);
+      outer.rotation.z = Math.PI;
+      const inset = plate(ear, ivory, [0, 0.14, -0.025], [0.1, 0.28, 0.24]);
+      inset.rotation.z = Math.PI;
       ears.push({ group: ear, rest: ear.rotation.z });
-    }
-    const tail = new THREE.Group();
-    tail.position.set(0, 0.85, 0.81);
-    rig.add(tail);
-    tapered(
-      tail,
-      [
-        [0, 0, 0],
-        [0.075, 0.08, 0.31],
-        [0.12, 0.24, 0.7],
-        [0.075, 0.53, 1.03],
-        [-0.03, 0.72, 1.1],
-      ],
-      [
-        [0.13, 0.13],
-        [0.22, 0.24],
-        [0.23, 0.27],
-        [0.14, 0.16],
-        [0.006, 0.006],
-      ],
-      fur,
-      40,
-    );
-    tapered(
-      tail,
-      [
-        [0.125, 0.285, 0.76],
-        [0.09, 0.49, 1.0],
-        [-0.03, 0.725, 1.11],
-      ],
-      [
-        [0.223, 0.231],
-        [0.161, 0.17],
-        [0.005, 0.005],
-      ],
-      cream,
-      24,
-    );
-    // Fitted leather harness and a luminous compass talisman identify the explorer.
-    for (const z of [-0.31, 0.3]) {
-      const strap = mesh(
-        rig,
-        new THREE.TorusGeometry(0.38, 0.042, 10, 64),
-        leather,
-        [0, 0.92, z],
-        [1.15, 1.06, 1],
-      );
-      strap.rotation.y = z > 0 ? -0.03 : 0.03;
-    }
-    for (const side of [-1, 1]) {
-      line(
-        rig,
+      const growth = stage >= 2 ? 1 : 0.62;
+      const horn = tapered(
+        head,
+        ivory,
         [
-          [side * 0.44, 1.02, -0.33],
-          [side * 0.48, 0.99, 0],
-          [side * 0.46, 0.96, 0.33],
+          [side * 0.215, 0.26, 0.09],
+          [side * 0.28, 0.32 + growth * 0.13, 0.22],
+          [side * 0.28, 0.36 + growth * 0.15, 0.46],
+          [side * 0.23, 0.43 + growth * 0.16, 0.68],
         ],
-        0.041,
-        leather,
+        [0.091, 0.071, 0.033, 0.002],
+        0.8,
       );
-      const buckle = mesh(rig, new THREE.TorusGeometry(0.065, 0.012, 8, 28), gold, [
-        side * 0.471,
-        1.015,
-        -0.02,
-      ]);
-      buckle.rotation.y = Math.PI / 2;
-    }
-    line(
-      rig,
-      [
-        [-0.2, 1.12, -0.65],
-        [0, 0.92, -0.786],
-        [0.2, 1.12, -0.65],
-      ],
-      0.018,
-      leather,
-    );
-    const talisman = mesh(
-      rig,
-      new THREE.OctahedronGeometry(0.105, 0),
-      cyan,
-      [0, 0.92, -0.8],
-      [0.72, 1.13, 0.41],
-    );
-    mesh(
-      rig,
-      new THREE.TorusGeometry(0.115, 0.012, 8, 4),
-      gold,
-      [0, 0.92, -0.793],
-      [0.72, 1.13, 0.5],
-    ).rotation.z = Math.PI / 4;
-    if (stage === 0) {
-      soft(rig, leatherLight, [0.45, 0.85, 0.26], [0.2, 0.255, 0.29]);
-      soft(rig, leather, [0.48, 0.82, 0.29], [0.202, 0.16, 0.294]);
-      const egg = soft(rig, cream, [0.49, 1.14, 0.26], [0.16, 0.225, 0.155]);
-      egg.rotation.z = -0.14;
-      line(
-        rig,
-        [
-          [0.41, 1.29, 0.136],
-          [0.55, 1.2, 0.12],
-          [0.42, 1.1, 0.124],
-        ],
-        0.011,
-        cyan,
-      );
-      line(
-        rig,
-        [
-          [0.48, 0.93, -0.035],
-          [0.65, 1.02, 0.18],
-          [0.62, 0.96, 0.43],
-        ],
-        0.025,
-        leatherLight,
-      );
-      mesh(
-        rig,
-        new THREE.TorusGeometry(0.042, 0.009, 8, 24),
-        gold,
-        [0.656, 0.89, 0.23],
-      ).rotation.y = Math.PI / 2;
-    }
-    if (stage >= 2) {
-      for (const side of [-1, 1]) {
+      horn.name = `ember-crown-horn-${side}`;
+      if (stage >= 2) {
         tapered(
           head,
-          [
-            [side * 0.31, 0.27, 0.17],
-            [side * 0.42, 0.46, 0.23],
-            [side * 0.43, 0.57, 0.45],
-            [side * 0.35, 0.66, 0.57],
-          ],
-          [
-            [0.095, 0.09],
-            [0.073, 0.065],
-            [0.038, 0.033],
-            [0.004, 0.004],
-          ],
           gold,
-        );
-        const shoulder = soft(rig, jade, [side * 0.397, 1.095, -0.32], [0.15, 0.245, 0.305]);
-        shoulder.rotation.z = side * -0.2;
-        line(
-          rig,
           [
-            [side * 0.45, 1.29, -0.37],
-            [side * 0.53, 1.11, -0.48],
-            [side * 0.49, 0.94, -0.37],
+            [side * 0.18, 0.32, 0.09],
+            [side * 0.11, 0.48, 0.25],
+            [side * 0.08, 0.59, 0.45],
           ],
-          0.016,
-          gold,
-        );
-        const crystal = mesh(
-          rig,
-          new THREE.OctahedronGeometry(0.15),
-          cyan,
-          [side * 0.465, 1.23, -0.18],
-          [0.6, 1.45, 0.72],
-        );
-        crystal.rotation.z = side * -0.45;
-      }
-      for (let i = 0; i < 4; i += 1) {
-        if (stage === 3 && i > 0) continue; // Leave a smooth back beneath the riding saddle.
-        const spine = mesh(
-          rig,
-          new THREE.OctahedronGeometry(0.12),
-          jade,
-          [0, 1.25 - i * 0.025, -0.12 + i * 0.23],
-          [0.54, 1.05 - i * 0.1, 1.0],
-        );
-        spine.rotation.x = -0.35;
-        mesh(
-          rig,
-          new THREE.OctahedronGeometry(0.078),
-          cyan,
-          [0, 1.33 - i * 0.036, -0.1 + i * 0.23],
-          [0.45, 1.1, 0.75],
+          [0.037, 0.025, 0.002],
+          0.8,
         );
       }
     }
-    const wings: Array<{
-      group: THREE.Group;
-      side: number;
-    }> = [];
-    const ridingTack = new THREE.Group();
-    rig.add(ridingTack);
+
+    const tail = pivot(rig, [0, 0.87, 0.85]);
+    tail.name = 'ember-plated-tail';
+    const tailJoints: THREE.Group[] = [];
+    let parent = tail;
+    for (let segment = 0; segment < 3; segment++) {
+      const joint = pivot(parent, segment ? [0, 0.07, 0.39] : [0, 0, 0]);
+      joint.name = `ember-tail-joint-${segment}`;
+      const width = 0.155 - segment * 0.043;
+      form(joint, amber, [
+        { center: [0, -0.012, -0.025], width, depth: width * 0.84 },
+        { center: [0, 0.005, 0.14], width: width * 0.88, depth: width * 0.75 },
+        { center: [0, 0.065, 0.36], width: width * 0.68, depth: width * 0.58 },
+        { center: [0, 0.085, 0.43], width: width * 0.62, depth: width * 0.52 },
+      ]);
+      const armor = plate(
+        joint,
+        stage >= 2 ? navy : gold,
+        [0, width * 0.73 + 0.02, 0.15],
+        [width * 1.8, 0.4, 0.45],
+      );
+      armor.rotation.x = -Math.PI / 2;
+      tailJoints.push(joint);
+      parent = joint;
+    }
+    const tailTip = plate(parent, navy, [0, 0.15, 0.49], [0.31, 0.51, 0.65]);
+    tailTip.rotation.x = 0.3;
+    tailTip.rotation.z = Math.PI;
+    const tailLight = plate(parent, gold, [0, 0.15, 0.474], [0.18, 0.35, 0.35]);
+    tailLight.rotation.copy(tailTip.rotation);
+    const talisman = crystal(rig, [0, 1.11, -0.658], [0.05, 0.09, 0.035]);
+    talisman.name = 'ember-heart-crystal';
+
+    if (stage < 3) {
+      for (const side of [-1, 1]) {
+        const bud = plate(
+          rig,
+          navy,
+          [side * 0.3, 1.1, 0.24],
+          [0.19, stage >= 2 ? 0.61 : 0.34, 0.65],
+        );
+        bud.rotation.z = -side * 0.43;
+        bud.rotation.x = -0.65;
+      }
+      if (stage >= 2) {
+        for (let i = 0; i < 3; i++) {
+          const spine = plate(rig, navy, [0, 1.2 - i * 0.03, 0.13 + i * 0.22], [0.08, 0.27, 0.5]);
+          spine.rotation.y = Math.PI / 2;
+          spine.rotation.z = Math.PI;
+        }
+      }
+    }
+    const wings: Array<{ group: THREE.Group; side: number }> = [];
+    const ridingTack = pivot(rig, [0, 0, 0]);
     ridingTack.visible = false;
     if (stage === 3) {
-      soft(rig, cream, [0, 1.27, 0.38], [0.345, 0.036, 0.34]);
+      soft(rig, ivory, [0, 1.27, 0.38], [0.345, 0.036, 0.34]);
       soft(rig, leather, [0, 1.31, 0.38], [0.314, 0.045, 0.31]);
-      soft(rig, leatherLight, [0, 1.355, 0.615], [0.292, 0.092, 0.052]);
-      line(
-        rig,
-        [
-          [-0.26, 1.32, 0.14],
-          [0, 1.405, 0.095],
-          [0.26, 1.32, 0.14],
-        ],
-        0.024,
-        gold,
-      );
+      soft(rig, navy, [0, 1.355, 0.615], [0.292, 0.092, 0.052]);
       for (const side of [-1, 1]) {
-        line(
+        tube(
           rig,
+          gold,
           [
-            [side * 0.29, 1.3, 0.37],
+            [side * 0.28, 1.3, 0.37],
             [side * 0.43, 0.98, 0.38],
             [side * 0.39, 0.68, 0.31],
           ],
           0.024,
-          leather,
         );
-        const stirrup = mesh(rig, new THREE.TorusGeometry(0.068, 0.012, 8, 24), gold, [
+        const stirrup = mesh(rig, new THREE.TorusGeometry(0.068, 0.012, 6, 16), gold, [
           side * 0.4,
           0.67,
           0.3,
         ]);
         stirrup.rotation.y = Math.PI / 2;
-        line(
+        tube(
           ridingTack,
+          leather,
           [
             [side * 0.24, 1.13, -0.48],
             [side * 0.27, 1.3, -0.3],
             [side * 0.21, 1.6, -0.2],
           ],
-          0.015,
-          leatherLight,
+          0.018,
         );
       }
-      const membrane = physical({
-        color: '#65d4c7',
-        emissive: '#1c7474',
-        emissiveIntensity: 0.18,
-        roughness: 0.42,
-        metalness: 0.05,
-        clearcoat: 0.15,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.93,
-      });
-      const outline = new THREE.Shape();
-      outline.moveTo(0, 0);
-      outline.bezierCurveTo(0.32, -0.19, 0.81, -0.1, 1.13, 0.13);
-      outline.quadraticCurveTo(1.55, 0.37, 1.72, 0.61);
-      outline.quadraticCurveTo(1.35, 0.54, 1.12, 0.96);
-      outline.quadraticCurveTo(1.02, 0.62, 0.79, 1.19);
-      outline.quadraticCurveTo(0.62, 0.76, 0.34, 1.05);
-      outline.quadraticCurveTo(0.33, 0.52, 0, 0.34);
-      outline.closePath();
-      const height = (x: number, z: number) =>
-        Math.sin((x / 1.85) * Math.PI) * 0.73 + x * 0.06 - z * 0.24;
-      const curvedPoint = (x: number, z: number): Point => [x, height(x, z), z];
-      // Refine the membrane before curving it, so the large wings have soft normals.
-      const flat = new THREE.ShapeGeometry(outline, 16);
-      let coordinates: Array<[number, number]> = [];
-      const positions = flat.getAttribute('position');
-      for (let i = 0; i < positions.count; i += 1)
-        coordinates.push([positions.getX(i), positions.getY(i)]);
-      let triangles = Array.from(flat.getIndex()!.array);
-      flat.dispose();
-      for (let refinement = 0; refinement < 2; refinement += 1) {
-        const mids = new Map<string, number>();
-        const middle = (a: number, b: number) => {
-          const key = a < b ? `${a}:${b}` : `${b}:${a}`;
-          const previous = mids.get(key);
-          if (previous !== undefined) return previous;
-          const id = coordinates.length;
-          coordinates.push([
-            (coordinates[a][0] + coordinates[b][0]) / 2,
-            (coordinates[a][1] + coordinates[b][1]) / 2,
-          ]);
-          mids.set(key, id);
-          return id;
-        };
-        const refined: number[] = [];
-        for (let i = 0; i < triangles.length; i += 3) {
-          const [a, b, c] = triangles.slice(i, i + 3);
-          const ab = middle(a, b);
-          const bc = middle(b, c);
-          const ca = middle(c, a);
-          refined.push(a, ab, ca, ab, b, bc, ca, bc, c, ab, bc, ca);
-        }
-        triangles = refined;
+      const membrane = material('#e9b066', { roughness: 0.74, side: THREE.DoubleSide });
+      const wingOutline = new THREE.Shape();
+      wingOutline.moveTo(0, 0);
+      wingOutline.quadraticCurveTo(0.65, -0.39, 1.27, -0.29);
+      wingOutline.quadraticCurveTo(1.83, -0.2, 2.2, 0.18);
+      wingOutline.quadraticCurveTo(1.91, 0.3, 1.58, 0.88);
+      wingOutline.quadraticCurveTo(1.31, 0.5, 1.17, 1.16);
+      wingOutline.quadraticCurveTo(0.88, 0.68, 0.62, 1.12);
+      wingOutline.quadraticCurveTo(0.39, 0.57, 0, 0.34);
+      wingOutline.closePath();
+      const wingPoint = (x: number, z: number): Point => [
+        x,
+        Math.sin((x / 2.2) * Math.PI) * 0.47 - z * 0.16,
+        z,
+      ];
+      const wingGeometry = new THREE.ShapeGeometry(wingOutline, 10);
+      const positions = wingGeometry.getAttribute('position');
+      for (let i = 0; i < positions.count; i++) {
+        positions.setXYZ(i, ...wingPoint(positions.getX(i), positions.getY(i)));
       }
-      const wingGeometry = new THREE.BufferGeometry();
-      wingGeometry.setAttribute(
-        'position',
-        new THREE.Float32BufferAttribute(
-          coordinates.flatMap(([x, z]) => curvedPoint(x, z)),
-          3,
-        ),
-      );
-      wingGeometry.setIndex(triangles);
       wingGeometry.computeVertexNormals();
       for (const side of [-1, 1]) {
-        const wing = new THREE.Group();
-        wing.position.set(side * 0.33, 1.15, 0.05);
+        const wing = pivot(rig, [side * 0.34, 1.17, 0.03]);
+        wing.name = `ember-solar-wing-${side}`;
         wing.scale.x = side;
-        rig.add(wing);
         mesh(wing, wingGeometry, membrane);
-        line(
+        tube(
           wing,
-          outline.getPoints(30).map(({ x, y }) => curvedPoint(x, y)),
-          0.017,
-          gold,
+          navy,
+          wingOutline.getPoints(18).map(({ x, y }) => wingPoint(x, y)),
+          0.022,
         );
         tapered(
           wing,
-          [[0, 0, 0], curvedPoint(0.41, -0.11), curvedPoint(0.94, 0.045), curvedPoint(1.72, 0.61)],
-          [
-            [0.075, 0.067],
-            [0.055, 0.048],
-            [0.035, 0.03],
-            [0.007, 0.007],
-          ],
-          fur,
+          ivory,
+          [[0, 0, 0], wingPoint(0.65, -0.28), wingPoint(1.29, -0.28), wingPoint(2.2, 0.18)],
+          [0.08, 0.064, 0.033, 0.004],
         );
-        for (const tip of [
-          [1.12, 0.96],
-          [0.79, 1.19],
-          [0.34, 1.05],
+        for (const [x, z] of [
+          [1.58, 0.88],
+          [1.17, 1.16],
+          [0.62, 1.12],
         ]) {
-          line(
+          tube(
             wing,
-            [
-              curvedPoint(0.4, -0.06),
-              curvedPoint((tip[0] + 0.4) / 2, tip[1] * 0.45),
-              curvedPoint(tip[0], tip[1]),
-            ],
-            0.015,
             gold,
+            [wingPoint(0.47, -0.17), wingPoint((x + 0.47) / 2, z * 0.4), wingPoint(x, z)],
+            0.012,
           );
         }
-        soft(wing, jade, [0.03, 0.015, 0.02], [0.15, 0.125, 0.19]);
+        const wingGem = crystal(wing, wingPoint(0.49, -0.18), [0.09, 0.13, 0.12]);
+        wingGem.rotation.z = -0.35;
         wings.push({ group: wing, side });
       }
     }
+
     const size = [0.82, 0.95, 1.04, 1.1][stage];
     rig.scale.setScalar(size);
     const saddlePoint = new THREE.Vector3(0, 1.355, 0.38);
@@ -731,7 +453,7 @@ export function createCompanion(stage: 0 | 1 | 2 | 3): ModelRig {
           : bodyDrop * size + Math.sin(time * 2.25) * 0.009 * (1 - movement);
         rig.rotation.z = flying ? Math.sin(time * 2.5) * 0.018 : 0;
         rig.rotation.x = flying ? -0.04 : -jump * 0.06;
-        legs.forEach(({ pivot, knee, ankle, front }, index) => {
+        legs.forEach(({ pivot: leg, knee, ankle, front }, index) => {
           const step = sampleFootstep(
             quadrupedPhase(stride, index, run),
             reach,
@@ -744,20 +466,24 @@ export function createCompanion(stage: 0 | 1 | 2 | 3): ModelRig {
             0.39,
             0.345,
           );
-          pivot.rotation.x = flying ? (front ? -1.03 : 1.12) : angles.hip + jump * 0.16;
-          pivot.position.y = flying ? 0.91 : 0.86;
+          leg.rotation.x = flying ? (front ? -1.03 : 1.12) : angles.hip + jump * 0.16;
+          leg.position.y = flying ? 0.91 : 0.86;
           knee.rotation.x = flying ? 0 : angles.knee;
           ankle.rotation.x = flying ? 0 : -angles.hip - angles.knee + step.pitch * movement;
         });
         tail.rotation.y = Math.sin(time * 2.1) * (0.18 + movement * 0.13);
-        tail.rotation.x = Math.sin(time * 2.7) * 0.045 + movement * 0.13;
+        tail.rotation.x = Math.sin(time * 2.7) * 0.035 + movement * 0.08;
+        tailJoints.forEach((joint, index) => {
+          joint.rotation.y =
+            Math.sin(time * 2.1 - index * 0.65) * (0.04 + index * 0.018 + movement * 0.03);
+        });
         head.rotation.y = Math.sin(time * 0.75) * 0.075 * (1 - movement * 0.75);
         head.rotation.x = Math.sin(time * 1.6) * 0.025 - movement * 0.04;
         for (const { group: ear, rest } of ears)
           ear.rotation.z = rest + Math.sin(time * 2.6 + rest * 4) * 0.035;
         const blinkAt = (time + 0.7) % 5.6;
         const openness = blinkAt < 0.14 ? Math.max(0.045, Math.abs(blinkAt - 0.07) / 0.07) : 1;
-        for (const eye of eyeGroups) eye.scale.y = openness;
+        for (const eye of eyeGroups) eye.scale.y = openness * 0.84;
         for (const { group: wing, side } of wings) {
           wing.rotation.z =
             side *
@@ -769,7 +495,7 @@ export function createCompanion(stage: 0 | 1 | 2 | 3): ModelRig {
             ? -0.1 + Math.cos(time * 5.2) * 0.08
             : Math.sin(time * 1.8) * 0.028 - 0.1;
         }
-        cyan.emissiveIntensity = 0.39 + Math.sin(time * 2.5) * 0.11;
+        glow.emissiveIntensity = 0.13 + Math.sin(time * 1.8) * 0.025;
         talisman.rotation.y = Math.sin(time * 1.1) * 0.08;
         if (rideSeat) {
           rig.updateMatrix();
@@ -779,15 +505,11 @@ export function createCompanion(stage: 0 | 1 | 2 | 3): ModelRig {
       dispose() {
         if (disposed) return;
         disposed = true;
-        for (const geometry of geometries) geometry.dispose();
-        for (const material of materials) material.dispose();
-        group.clear();
+        k.dispose();
       },
     };
   } catch (error) {
-    geometries.forEach((geometry) => geometry.dispose());
-    materials.forEach((material) => material.dispose());
-    group.clear();
+    k.dispose();
     throw error;
   }
 }

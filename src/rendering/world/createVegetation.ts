@@ -1,8 +1,17 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { getTerrainHeight, lakeDistance } from '../../game/world';
+import { getTerrainHeight, lakeDistance, type WorldPoint } from '../../game/world';
 import type { WorldRenderContext } from './context';
-export function createVegetation(context: WorldRenderContext) {
+import { createMeadowVegetation } from './createMeadowVegetation';
+export function createVegetation(context: WorldRenderContext): {
+  wind: { value: number };
+  regionCrowns: THREE.BufferGeometry[];
+  update?: (position: WorldPoint) => void;
+} {
+  if (context.region === 'meadow') return createMeadowVegetation(context);
+  return createRegionalVegetation(context);
+}
+function createRegionalVegetation(context: WorldRenderContext) {
   const {
     region,
     theme,

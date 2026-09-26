@@ -1,0 +1,355 @@
+/* Loaded with the collection/capture dialogs, never with the permanent HUD. */
+@media (min-width: 1001px) {
+  .modal:has(.creature-journal) {
+    width: 1040px;
+    max-width: calc(100vw - 64px);
+  }
+  .creature-journal .pet-collection {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.creature-journal > h2 {
+  font-size: clamp(23px, 4vw, 32px);
+}
+.creature-journal > p {
+  line-height: 1.8;
+}
+.collection-filters {
+  display: flex;
+  gap: 7px;
+  margin: 22px 0 16px;
+}
+.collection-filters button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  flex: 1;
+  border: 1px solid #c8d0bd;
+  border-radius: 9px;
+  background: #f6f5e9;
+  color: #62725c;
+  font-size: 11px;
+}
+.collection-filters button[aria-pressed='true'] {
+  color: #fffced;
+  background: #455f53;
+  border-color: #455f53;
+}
+.collection-filters span {
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+.creature-journal .pet-collection {
+  gap: 16px;
+  align-items: start;
+}
+.creature-journal .pet-card {
+  background: #fffdf3;
+  border: 1px solid #c6ccb9;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px #293d2810;
+}
+.creature-journal .pet-card.active {
+  border-color: #668366;
+  box-shadow: 0 0 0 2px #668366;
+}
+.creature-journal .pet-card-art,
+.creature-encounter .capture-pet,
+.creature-reveal .reward-pet {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      ellipse at 50% 70%,
+      color-mix(in srgb, var(--pet-color) 37%, transparent),
+      transparent 67%
+    ),
+    var(--pet-ink);
+}
+.creature-journal .pet-card-art::before,
+.creature-encounter .capture-pet::before,
+.creature-reveal .reward-pet::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 13% 18%;
+  border: 1px solid color-mix(in srgb, var(--pet-color) 28%, transparent);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 15px color-mix(in srgb, var(--pet-color) 5%, transparent),
+    0 0 0 31px color-mix(in srgb, var(--pet-color) 4%, transparent);
+  transform: rotate(-18deg);
+}
+[data-species='cinder'] .pet-card-art::before,
+[data-species='cinder'] .capture-pet::before,
+[data-species='bolt'] .pet-card-art::before,
+[data-species='bolt'] .capture-pet::before {
+  border-radius: 12%;
+  transform: rotate(35deg);
+}
+[data-species='moss'] .pet-card-art::before,
+[data-species='moss'] .capture-pet::before {
+  border-radius: 35% 65% 20% 80%;
+}
+.creature-journal .pet-card-art {
+  height: 224px;
+  align-items: center;
+}
+.creature-journal .pet-card-art > .companion-portrait {
+  width: 238px;
+  height: 238px;
+  max-width: 100%;
+  filter: none;
+  opacity: 1;
+}
+.creature-journal .element-badge {
+  top: 14px;
+  left: 14px;
+  background: #12222b85;
+  border: 1px solid #ffffff23;
+  color: #fff6dd;
+  font-size: 10px;
+}
+.specimen-number,
+.specimen-species {
+  position: absolute;
+  color: #f6f3e1;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+.specimen-number {
+  right: 14px;
+  top: 18px;
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+}
+.specimen-species {
+  bottom: 12px;
+  left: 15px;
+}
+.creature-journal .pet-card-info {
+  padding: 17px;
+}
+.pet-epithet {
+  display: block;
+  color: #859078;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+.creature-journal .pet-card h3 {
+  color: #384c40;
+  font-size: 22px;
+  gap: 10px;
+}
+.creature-journal .pet-card h3 > span {
+  font-size: 10px;
+  padding: 4px 7px;
+}
+.pet-signature {
+  margin: 10px 0 8px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #556d63;
+}
+.creature-journal .pet-card p {
+  font-size: 11px;
+  line-height: 1.8;
+  min-height: 0;
+}
+.creature-journal .pet-flight-badge {
+  min-height: 0;
+  margin-top: 9px;
+  font-size: 10px;
+}
+.pet-fieldnote {
+  margin-top: 14px;
+  border-top: 1px solid #e4e7d9;
+  border-bottom: 1px solid #e4e7d9;
+}
+.pet-fieldnote summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  cursor: pointer;
+  font-size: 11px;
+  color: #5c7564;
+}
+.pet-fieldnote summary::after {
+  content: '+';
+  margin-left: auto;
+  font-size: 17px;
+}
+.pet-fieldnote[open] summary::after {
+  content: '−';
+}
+.pet-fieldnote strong {
+  font-size: 11px;
+  font-weight: 500;
+  color: #495f4c;
+}
+.creature-journal .pet-fieldnote p {
+  margin: 6px 0 13px;
+}
+.creature-journal .pet-destination {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: #76826b;
+  margin: 14px 0 10px;
+  line-height: 1.7;
+}
+.creature-journal .pet-card button {
+  min-height: 44px;
+  font-size: 12px;
+  border-radius: 9px;
+}
+.collection-complete {
+  padding: 24px 12px;
+  text-align: center;
+  background: #e8eeda;
+  border-radius: 12px;
+}
+.pet-evolution {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid #cbd1bd;
+}
+.pet-evolution-heading h3 {
+  margin-top: 6px;
+  font-size: 20px;
+  color: #455d47;
+}
+.pet-evolution-forms {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 15px;
+}
+.pet-evolution-forms article {
+  text-align: center;
+  background: #f6f4e9;
+  border: 1px solid #dce0ce;
+  border-radius: 12px;
+  padding-bottom: 13px;
+}
+.pet-evolution-forms article.is-unlocked {
+  background: #e8edd9;
+  border-color: #acbb96;
+}
+.pet-evolution-forms .companion-portrait {
+  width: 100%;
+  aspect-ratio: 1;
+}
+.pet-evolution-forms h4 {
+  font-size: 12px;
+  color: #516548;
+}
+.pet-evolution-forms p,
+.pet-evolution-forms small {
+  display: block;
+  margin: 7px 5px 0;
+  font-size: 10px;
+  line-height: 1.6;
+  color: #849174;
+}
+.creature-encounter .capture-pet {
+  height: 225px;
+  border-radius: 20px;
+  margin: 20px 0 14px;
+}
+.creature-encounter .capture-pet > .companion-portrait {
+  width: 250px;
+  height: 250px;
+}
+.encounter-signature {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  color: #f3eadc;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+.creature-encounter > .encounter-instruction {
+  line-height: 1.8;
+  font-size: 12px;
+  margin-top: 13px;
+}
+.creature-encounter .bond-message {
+  font-size: 12px;
+}
+.creature-reveal .reward-pet {
+  width: 100%;
+  height: 240px;
+  border-radius: 22px;
+  margin: 14px auto;
+}
+.creature-reveal .reward-pet .companion-portrait {
+  width: 260px;
+  height: 260px;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.reveal-species {
+  display: block;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #8b926e;
+  margin: 15px 0 12px;
+}
+@media (max-width: 600px) {
+  .creature-journal .pet-collection {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .creature-journal .journal-stats {
+    gap: 32px;
+  }
+  .creature-journal .journal-stats span {
+    font-size: 10px;
+  }
+  .creature-journal .pet-card-art {
+    height: 224px;
+  }
+  .creature-journal .pet-card-art > .companion-portrait {
+    height: 250px;
+    width: 250px;
+  }
+  .creature-journal .pet-card-info {
+    padding: 17px;
+  }
+  .creature-journal .pet-card p {
+    font-size: 12px;
+  }
+  .pet-evolution-forms {
+    gap: 6px;
+  }
+  .pet-evolution-forms h4 {
+    font-size: 11px;
+  }
+  .pet-evolution-forms p {
+    display: none;
+  }
+  .creature-encounter .capture-pet,
+  .creature-reveal .reward-pet {
+    height: 190px;
+    margin: 13px 0;
+  }
+  .creature-encounter .capture-pet > .companion-portrait,
+  .creature-reveal .reward-pet .companion-portrait {
+    height: 220px;
+    width: 220px;
+  }
+  .creature-encounter h2 {
+    font-size: 24px;
+  }
+  .creature-encounter .bond-hearts {
+    margin: 16px 0;
+  }
+}

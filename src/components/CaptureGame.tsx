@@ -1,8 +1,10 @@
 import { Check, Heart, Sparkles } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { SoundCue } from '../audio/types';
 import { PETS, isCaptureHit, type PetId } from '../game/adventure';
+import { PET_IDENTITIES } from '../game/petIdentity';
 import CompanionPortrait from './CompanionPortrait';
+import '../features/dialogs/petCollection.css';
 
 export default function CaptureGame({
   petId,
@@ -16,7 +18,8 @@ export default function CaptureGame({
   const [hits, setHits] = useState(0);
   const [phase, setPhase] = useState(0);
   const [slow, setSlow] = useState(false);
-  const [message, setMessage] = useState('等光点进入绿色区域，轻轻安抚它。');
+  const identity = PET_IDENTITIES[petId];
+  const [message, setMessage] = useState(identity.bondLines[0]);
   const [cooldown, setCooldown] = useState(false);
   const phaseRef = useRef(0);
   const hitRef = useRef(0);
@@ -53,9 +56,7 @@ export default function CaptureGame({
         return;
       }
       onSound?.('seal');
-      setMessage(
-        hitRef.current === 1 ? '它放松了下来，再靠近一点。' : '它已经开始信任你，最后一次！',
-      );
+      setMessage(identity.bondLines[hitRef.current]);
     } else {
       onSound?.('mistake');
       setMessage('它还有一点害羞。没关系，可以继续尝试。');
@@ -66,16 +67,23 @@ export default function CaptureGame({
     }, 450);
   }
   return (
-    <div className="capture-game">
-      <div className="eyebrow">A NEW FRIEND IS WAITING</div>
+    <div
+      className="capture-game creature-encounter"
+      data-species={petId}
+      style={{ '--pet-color': pet.color, '--pet-ink': identity.ink } as CSSProperties}
+    >
+      <div className="eyebrow">
+        {identity.species} · {identity.epithet}
+      </div>
       <h2>和{pet.name}建立羁绊</h2>
-      <div className="capture-pet" style={{ '--pet-color': pet.color } as React.CSSProperties}>
+      <div className="capture-pet">
         <CompanionPortrait petId={petId} />
+        <span className="encounter-signature">{identity.signature}</span>
       </div>
       <span className="element-badge" style={{ color: pet.color }}>
         {pet.element}属性 · 野生伙伴
       </span>
-      <p>{pet.description}</p>
+      <p className="encounter-instruction">等光点进入绿色区域，再轻轻安抚。让它一点点信任你。</p>
       <div className="bond-hearts" aria-label={`信任度 ${hits} / 3`}>
         {[0, 1, 2].map((i) => (
           <Heart

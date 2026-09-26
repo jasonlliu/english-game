@@ -8,10 +8,23 @@ import {
 import type { SceneryFrame, WildlifeObservation } from '../types';
 
 export type WildlifeKind = WildlifeObservation['kind'];
+export type WildlifeBehavior =
+  | 'graze'
+  | 'drink'
+  | 'rest'
+  | 'wander'
+  | 'alert'
+  | 'flee'
+  | 'perch'
+  | 'guide'
+  | 'flutter'
+  | 'groom'
+  | 'stalk';
 export interface MeadowAnimal extends WorldPoint {
   readonly id: string;
   readonly kind: WildlifeKind;
   readonly home: WorldPoint;
+  readonly homeRadius: number;
   readonly phase: number;
   heading: number;
   speed: number;
@@ -21,41 +34,55 @@ export interface MeadowAnimal extends WorldPoint {
   gait: number;
   startled: boolean;
   activity: number;
+  behavior: WildlifeBehavior;
   timer: number;
   cycle: number;
   target: WorldPoint;
+  returning: boolean;
+  perchIndex: number;
 }
-const SPAWNS: ReadonlyArray<readonly [WildlifeKind, number, number]> = [
-  ['deer', -6, 13],
-  ['deer', -8, 11],
-  ['deer', -69, 44],
-  ['deer', -73, 49],
-  ['deer', 46, -69],
-  ['rabbit', -3, 18],
-  ['rabbit', 10, 14],
-  ['rabbit', 60, 56],
-  ['rabbit', 67, 67],
-  ['rabbit', -46, 51],
-  ['rabbit', 4, -78],
-  ['bird', 4, 17],
-  ['bird', 17, 4],
-  ['bird', 66, 47],
-  ['bird', -77, 42],
-  ['bird', -74, 44],
-  ['bird', -6, -84],
-  ['bird', 43, 56],
-  ['fox', -9, 18],
-  ['fox', -57, 43],
-  ['butterfly', 6, 23],
-  ['butterfly', 64, 59],
-  ['butterfly', 67, 62],
+/** Sparse, authored habitats: one encounter per place, rather than a spawn-point menagerie. */
+const SPAWNS: ReadonlyArray<readonly [WildlifeKind, number, number, number]> = [
+  ['deer', 22, 11, 8],
+  ['deer', 19, 13, 7],
+  ['bird', -6, 18, 9],
+  ['rabbit', -71, 44, 5],
+  ['fox', -38, -12, 6],
+  ['butterfly', 66, 58, 2.8],
+  ['butterfly', 69, 64, 2.8],
 ];
+export const MEADOW_BIRD_PERCHES: readonly WorldPoint[] = [
+  { x: -6, z: 18 },
+  { x: -9, z: 15 },
+  { x: -12, z: 12 },
+];
+const DRINKING_BANK = { x: 26, z: 7 };
 const approachAngle = (from: number, to: number, amount: number) =>
   from + Math.atan2(Math.sin(to - from), Math.cos(to - from)) * amount;
+const homeDistance = (animal: MeadowAnimal) =>
+  Math.hypot(animal.x - animal.home.x, animal.z - animal.home.z);
+function boundedPoint(point: WorldPoint, home: WorldPoint, radius: number): WorldPoint {
+  const dx = point.x - home.x,
+    dz = point.z - home.z;
+  const factor = Math.min(1, radius / (Math.hypot(dx, dz) || 1));
+  return { x: home.x + dx * factor, z: home.z + dz * factor };
+}
+function feedingPatch(animal: MeadowAnimal): WorldPoint {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const angle = animal.phase + animal.cycle * 2.4 + attempt * 0.7;
+    const radius = animal.homeRadius * (animal.kind === 'butterfly' ? 0.68 : 0.45);
+    const point = {
+      x: animal.home.x + Math.cos(angle) * radius,
+      z: animal.home.z + Math.sin(angle) * radius,
+    };
+    if (isWalkable(point.x, point.z)) return point;
+  }
+  return { ...animal.home };
+}
 
-/** Bounded local simulation, shared with tests. Animals never become navigation obstacles. */
+/** All movement, including prolonged flight from a visitor, stays inside the authored habitat. */
 export function createWildlifeSimulation() {
-  const animals: MeadowAnimal[] = SPAWNS.map(([kind, x, z], index) => {
+  const animals: MeadowAnimal[] = SPAWNS.map(([kind, x, z, homeRadius], index) => {
     let home = { x, z };
     for (let i = 0; i < 24 && !isWalkable(home.x, home.z); i++) {
       const angle = i * 2.4;
@@ -66,18 +93,22 @@ export function createWildlifeSimulation() {
       kind,
       ...home,
       home,
+      homeRadius,
       phase: index * 2.39,
-      heading: index * 1.3,
+      heading: kind === 'deer' ? -0.5 : index * 1.3,
       speed: 0,
       alert: 0,
-      flight: 0,
+      flight: kind === 'butterfly' ? 0.4 : 0,
       alarm: 0,
       gait: 0,
       startled: false,
-      activity: index % 3,
-      timer: 1 + (index % 5),
+      activity: 0,
+      behavior: kind === 'bird' ? 'perch' : kind === 'butterfly' ? 'flutter' : 'graze',
+      timer: kind === 'bird' ? 4 : 3 + (index % 4),
       cycle: 0,
       target: { ...home },
+      returning: false,
+      perchIndex: 0,
     };
   });
   return {
@@ -87,78 +118,172 @@ export function createWildlifeSimulation() {
       if (!dt) return;
       for (const animal of animals) {
         const distance = Math.hypot(frame.position.x - animal.x, frame.position.z - animal.z);
-        const startled = distance < (frame.running ? 11 : animal.kind === 'bird' ? 3.6 : 2.6);
-        if (startled) animal.alarm = animal.kind === 'bird' ? 3.2 : 2.2;
+        const alarmed = distance < (frame.running ? 10 : animal.kind === 'bird' ? 2.8 : 2.6);
+        const previouslyStartled = animal.startled;
+        if (alarmed) animal.alarm = animal.kind === 'bird' ? 2.8 : 2.2;
         else animal.alarm = Math.max(0, animal.alarm - dt);
-        const aware = distance < (frame.running ? 16 : 7) || animal.alarm > 0;
-        animal.alert += ((aware ? 1 : 0) - animal.alert) * (1 - Math.exp(-dt * 6));
         const escaping = (animal.startled = animal.alarm > 0);
+        const aware = distance < (frame.running ? 15 : 7) || escaping;
+        animal.alert += ((aware ? 1 : 0) - animal.alert) * (1 - Math.exp(-dt * 6));
+        if (previouslyStartled && !escaping) {
+          animal.returning = true;
+          animal.target =
+            animal.kind === 'bird' ? { ...MEADOW_BIRD_PERCHES[0] } : { ...animal.home };
+          animal.perchIndex = 0;
+        }
         animal.timer -= dt;
-        if (animal.timer <= 0) {
+        if (animal.timer <= 0 && !escaping && !animal.returning) {
           animal.cycle++;
-          animal.activity = (animal.cycle + Math.floor(animal.phase)) % 3;
-          animal.timer = 2.5 + (Math.sin(animal.phase + animal.cycle * 4.3) + 1) * 2;
-          const angle = animal.phase + animal.cycle * 2.4;
-          // Calves forage near the adult; other species visit local feeding patches.
-          const herd =
-            animal.kind === 'deer' && animals.indexOf(animal) % 2 === 1
-              ? animals[animals.indexOf(animal) - 1]
-              : animal.home;
-          animal.target = { x: herd.x + Math.cos(angle) * 3, z: herd.z + Math.sin(angle) * 3 };
+          if (animal.kind === 'bird') {
+            // The same blue bird leads a quiet visitor between three low branches.
+            const lead = distance < 8 && !frame.running && frame.observingId !== animal.id;
+            if (lead) {
+              animal.perchIndex = (animal.perchIndex + 1) % MEADOW_BIRD_PERCHES.length;
+              animal.target = { ...MEADOW_BIRD_PERCHES[animal.perchIndex] };
+              animal.activity = 2;
+            }
+            animal.timer = 6;
+          } else {
+            animal.activity = animal.cycle % 3;
+            animal.timer =
+              animal.kind === 'deer'
+                ? 8
+                : 4 + (Math.sin(animal.phase + animal.cycle * 4.3) + 1) * 2;
+            animal.target =
+              animal.kind === 'deer' && animal.activity === 1
+                ? boundedPoint(DRINKING_BANK, animal.home, animal.homeRadius * 0.85)
+                : feedingPatch(animal);
+            if (!isWalkable(animal.target.x, animal.target.z)) animal.target = feedingPatch(animal);
+          }
         }
-        let dx = escaping ? animal.x - frame.position.x : animal.target.x - animal.x;
-        let dz = escaping ? animal.z - frame.position.z : animal.target.z - animal.z;
+        let dx = animal.target.x - animal.x,
+          dz = animal.target.z - animal.z;
         const remaining = Math.hypot(dx, dz);
-        if (remaining < 0.05) {
-          dx = Math.sin(animal.phase);
-          dz = Math.cos(animal.phase);
+        if (animal.returning && remaining < 0.4) {
+          animal.returning = false;
+          animal.activity = 0;
+          animal.timer = 4;
         }
+        const guiding =
+          animal.kind === 'bird' && (animal.activity === 2 || animal.returning) && remaining > 0.18;
+        if (animal.kind === 'bird' && !guiding && !escaping) animal.activity = 0;
+        if (escaping) {
+          dx = animal.x - frame.position.x;
+          dz = animal.z - frame.position.z;
+          const away = Math.hypot(dx, dz) || 1;
+          dx /= away;
+          dz /= away;
+          // Turn back or along the perimeter before reaching the hard habitat boundary.
+          const radial = homeDistance(animal) / animal.homeRadius;
+          const homePull = Math.max(0, (radial - 0.45) * 4);
+          dx += ((animal.home.x - animal.x) / animal.homeRadius) * homePull;
+          dz += ((animal.home.z - animal.z) / animal.homeRadius) * homePull;
+          if (Math.hypot(dx, dz) < 0.3) {
+            dx += (animal.z - animal.home.z) / animal.homeRadius;
+            dz -= (animal.x - animal.home.x) / animal.homeRadius;
+          }
+        }
+        const movingToPatch =
+          animal.returning ||
+          animal.activity === 2 ||
+          (animal.kind === 'deer' && animal.activity === 1) ||
+          animal.kind === 'butterfly';
         const targetSpeed = escaping
           ? animal.kind === 'deer'
             ? 4.7
             : animal.kind === 'rabbit'
               ? 4.2
-              : 5.1
-          : aware && animal.kind !== 'butterfly'
-            ? 0
-            : animal.activity === 2 && remaining > 0.4
-              ? animal.kind === 'deer'
-                ? 0.65
-                : 0.55
-              : 0;
+              : 4.8
+          : guiding
+            ? 1.7
+            : aware && animal.kind !== 'butterfly'
+              ? 0
+              : movingToPatch && remaining > 0.35
+                ? animal.kind === 'deer'
+                  ? 0.8
+                  : animal.kind === 'fox'
+                    ? 0.7
+                    : 0.48
+                : 0;
         const speed = animal.speed + (targetSpeed - animal.speed) * (1 - Math.exp(-dt * 5));
-        const angle = Math.atan2(-dx, -dz);
-        animal.heading = approachAngle(
-          animal.heading,
-          angle,
-          1 - Math.exp(-dt * (escaping ? 9 : 3)),
-        );
+        if (targetSpeed > 0)
+          animal.heading = approachAngle(
+            animal.heading,
+            Math.atan2(-dx, -dz),
+            1 - Math.exp(-dt * (escaping ? 9 : 4)),
+          );
         const before = { x: animal.x, z: animal.z };
-        let next = resolveMovement(before, {
-          x: animal.x - Math.sin(animal.heading) * speed * dt,
-          z: animal.z - Math.cos(animal.heading) * speed * dt,
-        });
+        const destination = boundedPoint(
+          {
+            x: animal.x - Math.sin(animal.heading) * speed * dt,
+            z: animal.z - Math.cos(animal.heading) * speed * dt,
+          },
+          animal.home,
+          animal.homeRadius,
+        );
+        let next = resolveMovement(before, destination);
         if (speed > 0 && Math.hypot(next.x - animal.x, next.z - animal.z) < speed * dt * 0.3) {
           animal.heading += dt * 4;
+          next = resolveMovement(
+            before,
+            boundedPoint(
+              {
+                x: animal.x - Math.sin(animal.heading + 0.8) * speed * dt,
+                z: animal.z - Math.cos(animal.heading + 0.8) * speed * dt,
+              },
+              animal.home,
+              animal.homeRadius,
+            ),
+          );
+        }
+        if (animal.kind === 'bird' && !escaping && remaining < 0.6) {
+          const settle = 1 - Math.exp(-dt * 8);
           next = resolveMovement(before, {
-            x: animal.x - Math.sin(animal.heading + 0.8) * speed * dt,
-            z: animal.z - Math.cos(animal.heading + 0.8) * speed * dt,
+            x: animal.x + dx * settle,
+            z: animal.z + dz * settle,
           });
         }
+        // Sliding around an obstacle must not escape a circular home range either.
+        if (Math.hypot(next.x - animal.home.x, next.z - animal.home.z) > animal.homeRadius + 1e-8)
+          next = before;
         animal.x = next.x;
         animal.z = next.z;
         animal.speed = Math.hypot(next.x - before.x, next.z - before.z) / dt;
         animal.gait +=
           (animal.speed * dt * Math.PI * 2) /
           (animal.kind === 'deer' ? 2.6 : animal.kind === 'rabbit' ? 1.25 : 0.75);
-        animal.flight +=
-          ((animal.kind === 'butterfly'
+        animal.behavior = escaping
+          ? 'flee'
+          : guiding
+            ? 'guide'
+            : animal.kind === 'bird'
+              ? 'perch'
+              : aware && animal.kind !== 'butterfly'
+                ? 'alert'
+                : animal.speed > 0.15
+                  ? animal.kind === 'fox'
+                    ? 'stalk'
+                    : animal.kind === 'butterfly'
+                      ? 'flutter'
+                      : 'wander'
+                  : animal.kind === 'deer'
+                    ? animal.activity === 1 && remaining < 0.6
+                      ? 'drink'
+                      : 'graze'
+                    : animal.kind === 'rabbit'
+                      ? animal.activity === 1
+                        ? 'groom'
+                        : 'graze'
+                      : animal.kind === 'butterfly'
+                        ? 'flutter'
+                        : 'rest';
+        const desiredFlight =
+          animal.kind === 'butterfly'
             ? 0.4
-            : animal.kind === 'bird' && (escaping || (animal.activity === 2 && animal.speed > 0.2))
+            : animal.kind === 'bird' && (escaping || guiding)
               ? 1
-              : 0) -
-            animal.flight) *
-          (1 - Math.exp(-dt * 3));
+              : 0;
+        animal.flight += (desiredFlight - animal.flight) * (1 - Math.exp(-dt * 3));
       }
     },
   };
@@ -169,7 +294,7 @@ export function createMeadowWildlife() {
   const group = new THREE.Group();
   group.name = 'meadow-wildlife';
   const simulation = createWildlifeSimulation();
-  const sphere = new THREE.SphereGeometry(1, 10, 7);
+  const sphere = new THREE.SphereGeometry(1, 16, 10);
   const cylinder = new THREE.CylinderGeometry(0.65, 1, 1, 7);
   const cone = new THREE.ConeGeometry(1, 1, 7);
   const material = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.9 });
@@ -201,6 +326,15 @@ export function createMeadowWildlife() {
     parent.add(object);
     return object;
   };
+  // Authored low perches make landing readable; these share the animal draw batches.
+  for (const [index, perch] of MEADOW_BIRD_PERCHES.entries()) {
+    const branch = pivot(group, perch.x, getTerrainHeight(perch.x, perch.z), perch.z);
+    branch.name = `meadow-bird-perch-${index}`;
+    part(branch, 'cylinder', '#78634c', [0, 0.4, 0], [0.07, 0.82, 0.07], [0.12, 0, -0.16]);
+    part(branch, 'cylinder', '#8f7859', [0.04, 0.73, 0], [0.047, 1.1, 0.047], [0, 0, 1.44]);
+    part(branch, 'cone', '#a49170', [-0.39, 0.86, 0], [0.038, 0.32, 0.038], [0, 0, -0.4]);
+    branch.updateMatrixWorld(true);
+  }
   const rigs = simulation.animals.map((animal, index) => {
     const root = new THREE.Group();
     group.add(root);
@@ -217,21 +351,20 @@ export function createMeadowWildlife() {
             : '#e6e1d2'
           : animal.kind === 'fox'
             ? '#c96b32'
-            : index % 2
-              ? '#508ea5'
-              : '#c38a43';
+            : '#4c91b0';
+    const neck = animal.kind === 'deer' ? pivot(root, 0, 1.44, -0.58) : null;
     const head = pivot(
-      root,
+      neck ?? root,
       0,
       animal.kind === 'deer'
-        ? 1.85
+        ? 0.41
         : animal.kind === 'rabbit'
           ? 0.62
           : animal.kind === 'fox'
             ? 0.82
             : 0.49,
       animal.kind === 'deer'
-        ? -0.74
+        ? -0.16
         : animal.kind === 'rabbit'
           ? -0.33
           : animal.kind === 'fox'
@@ -239,12 +372,14 @@ export function createMeadowWildlife() {
             : -0.2,
     );
     const legs: THREE.Object3D[] = [],
-      wings: THREE.Object3D[] = [];
+      wings: THREE.Object3D[] = [],
+      knees: THREE.Object3D[] = [];
     const tail = pivot(root, 0, animal.kind === 'fox' ? 0.62 : 0.25, 0.42);
     if (animal.kind === 'deer') {
       part(root, 'sphere', fur, [0, 1.27, 0], [0.43, 0.54, 0.88]);
       part(root, 'sphere', '#dfc9a5', [0, 1.0, -0.16], [0.32, 0.31, 0.59]);
-      part(root, 'sphere', fur, [0, 1.63, -0.56], [0.24, 0.49, 0.32], [-0.36, 0, 0]);
+      part(neck!, 'sphere', fur, [0, 0.19, 0.02], [0.24, 0.49, 0.32], [-0.36, 0, 0]);
+      part(neck!, 'sphere', '#ddc09a', [0, 0.13, -0.2], [0.14, 0.35, 0.1], [-0.36, 0, 0]);
       part(root, 'sphere', '#e6d6b4', [0, 1.48, 0.87], [0.15, 0.19, 0.24], [0.4, 0, 0]);
       part(head, 'sphere', fur, [0, 0, -0.12], [0.24, 0.26, 0.36]);
       part(head, 'sphere', '#d7bb92', [0, -0.12, -0.41], [0.17, 0.13, 0.23]);
@@ -262,8 +397,12 @@ export function createMeadowWildlife() {
         for (const fore of [-1, 1]) {
           const leg = pivot(root, side * 0.27, 1.04, fore * 0.53);
           legs.push(leg);
-          part(leg, 'cylinder', fur, [0, -0.43, 0], [0.095, 0.88, 0.105]);
-          part(leg, 'sphere', '#514838', [0, -0.95, -0.045], [0.1, 0.11, 0.15]);
+          part(leg, 'sphere', fur, [0, -0.2, 0], [0.11, 0.29, 0.14]);
+          const knee = pivot(leg, 0, -0.48, 0);
+          knees.push(knee);
+          part(knee, 'sphere', '#936744', [0, 0, 0], [0.08, 0.095, 0.09]);
+          part(knee, 'cylinder', fur, [0, -0.2, 0], [0.062, 0.43, 0.073]);
+          part(knee, 'sphere', '#514838', [0, -0.47, -0.045], [0.08, 0.085, 0.13]);
         }
         if (index % 2 === 0)
           for (let branch = 0; branch < 3; branch++) {
@@ -377,6 +516,8 @@ export function createMeadowWildlife() {
           [0.25, feather * 0.18, 0],
         );
       part(head, 'sphere', fur, [0, 0, 0], [0.15, 0.15, 0.16]);
+      part(head, 'sphere', '#e4e6d5', [0, -0.065, -0.115], [0.12, 0.073, 0.082]);
+      part(head, 'cone', '#315c78', [0, 0.17, 0.035], [0.068, 0.23, 0.1], [-0.55, 0, 0]);
       part(head, 'cone', '#dba05c', [0, -0.02, -0.18], [0.06, 0.18, 0.055], [-Math.PI / 2, 0, 0]);
       for (const side of [-1, 1]) {
         part(head, 'sphere', '#233e3c', [side * 0.12, 0.026, -0.078], [0.021, 0.026, 0.025]);
@@ -386,7 +527,7 @@ export function createMeadowWildlife() {
         part(root, 'cylinder', '#af9470', [side * 0.06, 0.075, 0], [0.018, 0.15, 0.018]);
       }
     }
-    return { root, head, legs, wings, tail };
+    return { root, head, neck, legs, knees, wings, tail };
   });
   const batches = (['sphere', 'cylinder', 'cone'] as const).map((shape) => {
     const batch = new THREE.InstancedMesh(
@@ -449,15 +590,28 @@ export function createMeadowWildlife() {
         animal.x,
         getTerrainHeight(animal.x, animal.z) +
           hop +
-          animal.flight * (2.6 + Math.sin(animationTime * 3 + animal.phase) * 0.2),
+          (animal.kind === 'bird' ? 0.78 : 0) +
+          animal.flight * (animal.kind === 'bird' ? 1.7 : 2.6) +
+          animal.flight * Math.sin(animationTime * 3 + animal.phase) * 0.12,
         animal.z,
       );
       rig.root.rotation.y = animal.heading;
-      const grazing = animal.activity === 0 && animal.speed < 0.2;
+      const grazing = animal.behavior === 'graze' || animal.behavior === 'drink';
       const relaxedHead = grazing
-        ? (animal.kind === 'deer' ? -0.8 : -0.4) + Math.sin(animationTime * 3 + animal.phase) * 0.12
+        ? (animal.kind === 'deer' ? 0.1 : -0.4) + Math.sin(animationTime * 3 + animal.phase) * 0.06
         : Math.sin(animationTime * 1.1 + animal.phase) * 0.12;
-      const grooming = animal.kind === 'rabbit' && animal.activity === 1 && !animal.startled;
+      const grooming = animal.behavior === 'groom';
+      if (rig.neck) {
+        const neckPose =
+          animal.behavior === 'drink'
+            ? -1.85
+            : grazing
+              ? -1.55
+              : animal.behavior === 'alert'
+                ? 0.12
+                : 0;
+        rig.neck.rotation.x += (neckPose - rig.neck.rotation.x) * (1 - Math.exp(-dt * 2.6));
+      }
       rig.root.rotation.x +=
         ((grooming ? 0.33 : 0) - rig.root.rotation.x) * (1 - Math.exp(-dt * 4));
       rig.tail.rotation.y = Math.sin(animationTime * 2 + animal.phase) * 0.26;
@@ -469,6 +623,10 @@ export function createMeadowWildlife() {
         (1 - Math.exp(-dt * 6));
       rig.legs.forEach((leg, j) => {
         leg.rotation.x = Math.sin(stride + (j === 0 || j === 3 ? 0 : Math.PI)) * moving * 0.75;
+      });
+      rig.knees.forEach((knee, j) => {
+        knee.rotation.x =
+          Math.max(0, -Math.sin(stride + (j === 0 || j === 3 ? 0 : Math.PI))) * moving * 0.65;
       });
       rig.wings.forEach((wing, j) => {
         wing.rotation.z =

@@ -19,7 +19,8 @@ export interface WorldEnvironmentFrame {
 export function createWorldEnvironment(region: RegionId, initialTreasureOpened = false) {
   const context = createWorldRenderContext(region);
   try {
-    const { sunlight } = createAtmosphere(context);
+    const atmosphere = createAtmosphere(context);
+    const { sunlight } = atmosphere;
     const terrain = createTerrain(context);
     const vegetation =
       region === 'water' ? { wind: { value: 0 }, regionCrowns: [] } : createVegetation(context);
@@ -35,6 +36,8 @@ export function createWorldEnvironment(region: RegionId, initialTreasureOpened =
       createWildMarkers: interactions.createWildMarkers,
       update({ time, delta, position, height, collected, treasureOpened }: WorldEnvironmentFrame) {
         vegetation.wind.value = time;
+        if ('update' in vegetation) vegetation.update?.(position);
+        atmosphere.update(time);
         water.update(time);
         interactions.update(time, delta, collected, treasureOpened);
         life.update(time, position, height);

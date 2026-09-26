@@ -6,12 +6,15 @@ import { buildMeadowExpansion } from '../meadow/landmarks';
 import { buildMeadowVillage } from '../meadow/village';
 import { createMeadowWildlife } from '../meadow/wildlife';
 import { createMeadowSecrets } from '../meadow/secrets';
+import { buildMeadowCliffs } from '../meadow/cliffs';
+import { paintArchitecture } from '../paintedSurfaces';
 import type { RegionScenery } from '../types';
 export function createRegionScenery(): RegionScenery {
   const scenery = buildRegionScenery(
     'meadow',
     ['#ecd8b2', '#969b83', '#638a91', '#795e49', '#ead9b5', '#79996b'],
     (kit) => {
+      paintArchitecture(kit);
       const {
         box,
         ball,
@@ -23,7 +26,6 @@ export function createRegionScenery(): RegionScenery {
         arch,
         window,
         fence,
-        waterfall,
         animate,
         stone,
         plaster,
@@ -31,7 +33,6 @@ export function createRegionScenery(): RegionScenery {
         wood,
         trim,
         gold,
-        leaves,
         white,
       } = kit;
       buildTemple(kit, (temple, templeWindow) => {
@@ -72,11 +73,7 @@ export function createRegionScenery(): RegionScenery {
           ball(field, gold, x, 0.71, z, 0.12, 0.25, 0.1);
         }
       fence(field, -4.7, -3.1, 9.3);
-      const falls = origin(-46, -32);
-      box(falls, stone, 0, 9.0, 0, 12.1, 18, 9.4);
-      box(falls, stone, -2, 18, 0, 8, 6, 7);
-      ball(falls, leaves, 0, 21.2, 0, 5.7, 1.6, 4.4);
-      waterfall(falls, 2, 4.88, 3.9, 20);
+      buildMeadowCliffs(kit);
       const bridge = origin(-41, -26);
       arch(bridge, trim, 0, 3, 0, 24, 12, 2.3);
       box(bridge, stone, 0, 15.0, 0, 24.2, 0.65, 3.4);
