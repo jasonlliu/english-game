@@ -587,6 +587,13 @@
   display: none;
 }
 @media (max-width: 760px) {
+  .temple-scene .world-run {
+    right: 146px;
+    bottom: 85px;
+    width: 52px;
+    height: 52px;
+    z-index: 5;
+  }
   .temple-quick-menu {
     display: flex;
     position: absolute;
@@ -609,5 +616,19 @@
     border-radius: 16px;
     font-size: 9px;
     backdrop-filter: blur(10px);
+  }
+}
+@media (max-width: 360px) {
+  .temple-quick-menu {
+    right: 16px;
+    gap: 6px;
+  }
+  .temple-quick-menu > button {
+    width: 42px;
+    height: 52px;
+  }
+  .temple-scene .world-run {
+    right: 116px;
+    width: 46px;
   }
 }
