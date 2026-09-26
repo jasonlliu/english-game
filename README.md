@@ -83,3 +83,20 @@ React + TypeScript + Vite + Three.js。人类、六只宠物、环境与肖像�
 - [资源与性能](docs/resource-loading.md)：按需分包、GPU 释放、缓存上限、体积预算与部署缓存策略。
 
 场景、神庙和弹窗按需加载，移动位置与高度独立订阅。`npm run check` 包含格式、类型、测试、构建及体积约束；GitHub Actions 执行相同检查。生产预览使用 `npm run preview`。
+
+## 阿里云发布
+
+游戏使用已有 ECS 的 nginx 静态托管，入口为 `https://47.94.56.16/english-game/`，沿用该 HTTPS 站点的访问密码。服务器不运行新的 Node 进程，也不接收浏览器存档。
+
+```sh
+npm run check
+npm run test:deploy
+npm run deploy:ecs -- --dry-run
+npm run deploy:ecs -- --stage-only --release my-release
+npm run deploy:ecs -- --status my-release
+npm run deploy:ecs -- --activate my-release
+```
+
+`deploy:ecs` 默认完成当前工作区的本机构建、上传、预发布和激活。`--dry-run` 不连接服务器。`--stage-only` 不切换线上版本；激活已有旧版本可回退代码。需要本机 Node.js 22+、已安装依赖，以及已配置的阿里云 Workbench `bigdream` profile；不要把凭证加入项目。
+
+发布按 `/english-game/` 构建独立快照，记录源码及产物哈希。HTML 每次重新验证，带哈希的场景资源长期缓存并跨版本保留，避免已打开页面后续探索时找不到旧资源。详细配置、核验与恢复见 [ECS 部署记录](docs/ecs-deployment.md)。
