@@ -7,10 +7,9 @@
 使用 Node.js 22：
 
 ```sh
-npm install
+npm ci
 npm run dev -- --port 5173
-npm test
-npm run build
+npm run check
 ```
 
 真实旅程：http://localhost:5173/ 。独立演示：http://localhost:5173/?mode=demo 。
@@ -52,3 +51,11 @@ React + TypeScript + Vite + Three.js。人类、六只宠物、环境与肖像�
 飞行测试覆盖飞行伙伴资格、飞越湖面、斜向速度、地形及实体净空、最高高度、四边界、异常输入和陆地降落点。
 
 神庙测试覆盖六种线索与点灯顺序、失误重置、重复点灯、幂等领取、存档恢复及模式隔离；室内路径覆盖机关/出口互通、柱边解析碰撞与边界。六区景点测试覆盖所有导航目标可达和建筑净空。
+
+## 持续迭代
+
+- [架构与新增功能接入](docs/architecture.md)：模块边界、地区/功能扩展步骤和验证流程。
+- [游戏状态与存档](docs/architecture-state.md)：统一命令入口、失败恢复、跨标签页同步和旧档迁移。
+- [资源与性能](docs/resource-loading.md)：按需分包、GPU 释放、缓存上限、体积预算与部署缓存策略。
+
+场景、神庙和弹窗按需加载，移动位置与高度独立订阅。`npm run check` 包含格式、类型、测试、构建及体积约束；GitHub Actions 执行相同检查。生产预览使用 `npm run preview`。

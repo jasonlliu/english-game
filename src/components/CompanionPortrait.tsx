@@ -1,40 +1,71 @@
-import { useEffect, useState } from 'react';
-import * as THREE from 'three';
-import { createPet, type ModelRig, type PetId } from './adventureModels';
-
-const portraits = new Map<string, string>();
-export default function CompanionPortrait({ stage = 1, petId = 'ember' }: { stage?: number; petId?: PetId }) {
-  const safeStage = Math.max(0, Math.min(3, Math.floor(stage))) as 0 | 1 | 2 | 3;
+import { useEffect, useRef, useState } from 'react';
+import { createModuleLoader } from '../loading/createModuleLoader';
+import type { PetId } from '../rendering/models/types';
+const portraitModules = createModuleLoader({
+  service: () => import('../rendering/portraits/service'),
+});
+export default function CompanionPortrait({
+  stage = 1,
+  petId = 'ember',
+}: {
+  stage?: number;
+  petId?: PetId;
+}) {
+  const host = useRef<HTMLElement>(null);
+  const safeStage = Number.isFinite(stage) ? Math.max(0, Math.min(3, Math.floor(stage))) : 1;
   const key = `${petId}-${safeStage}`;
-  const [source, setSource] = useState(portraits.get(key) || '');
+  const [visible, setVisible] = useState(false);
+  const [result, setResult] = useState({ key: '', source: '', failed: false });
   useEffect(() => {
-    if (portraits.has(key)) { setSource(portraits.get(key)!); return; }
-    let renderer: THREE.WebGLRenderer | undefined;
-    let model: ModelRig | undefined;
-    try {
-      renderer = new THREE.WebGLRenderer({alpha:true,antialias:true,preserveDrawingBuffer:true});
-      renderer.setSize(320,320); renderer.setPixelRatio(1);
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
-      const scene = new THREE.Scene();
-      scene.add(new THREE.HemisphereLight('#fff8e2','#8cafa0',2.4));
-      const light = new THREE.DirectionalLight('#fff0cc',3.5);light.position.set(-3,5,-4);scene.add(light);
-      const rim = new THREE.DirectionalLight('#9be4d5',2);rim.position.set(3,3,3);scene.add(rim);
-      model = createPet(petId, safeStage);scene.add(model.group);
-      model.animate(0,0,0);
-      const bounds = new THREE.Box3().setFromObject(model.group);
-      const center = bounds.getCenter(new THREE.Vector3());
-      const size = bounds.getSize(new THREE.Vector3());
-      const camera = new THREE.PerspectiveCamera(29,1,.1,100);
-      const distance = Math.max(size.x,size.y,size.z*.8)*(petId==='ember'&&safeStage===3?1.95:2.4);
-      if(petId!=='ember') camera.position.set(center.x+distance*.42,center.y+distance*.32,center.z-distance*.95);
-      else if(safeStage>=2) camera.position.set(center.x+distance*.7,center.y+distance*.5,center.z-distance*.72);
-      else camera.position.set(center.x+distance*.35,center.y+distance*.22,center.z-distance);
-      camera.lookAt(center);
-      renderer.render(scene,camera);
-      const data=renderer.domElement.toDataURL('image/png');portraits.set(key,data);setSource(data);
-    } catch { setSource(''); }
-    finally { model?.dispose();renderer?.dispose();renderer?.forceContextLoss(); }
-  },[petId,safeStage,key]);
-  return source ? <img className="companion-portrait" src={source} alt="" draggable={false}/> : <span className="companion-portrait portrait-fallback" aria-hidden="true">✦</span>;
+    if (!host.current) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      setVisible(entries.some((entry) => entry.isIntersecting));
+    });
+    observer.observe(host.current);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    if (!visible || (result.key === key && result.source)) return;
+    const abort = new AbortController();
+    setResult({ key, source: '', failed: false });
+    portraitModules
+      .load('service')
+      .then((module) => module.requestPortrait({ petId, stage: safeStage }, abort.signal))
+      .then((source) => {
+        if (!abort.signal.aborted) setResult({ key, source, failed: false });
+      })
+      .catch(() => {
+        if (!abort.signal.aborted) setResult({ key, source: '', failed: true });
+      });
+    return () => abort.abort();
+  }, [visible, key, petId, safeStage]);
+  const current = result.key === key ? result : null;
+  return (
+    <i
+      ref={host}
+      className="companion-portrait"
+      style={{ display: 'inline-grid', placeItems: 'center', fontStyle: 'normal' }}
+    >
+      {current?.source ? (
+        <img
+          src={current.source}
+          alt=""
+          draggable={false}
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        />
+      ) : (
+        <span
+          className="portrait-fallback"
+          aria-hidden="true"
+          title={current?.failed ? '头像暂时无法载入，再次显示时会重试' : undefined}
+        >
+          ✦
+        </span>
+      )}
+    </i>
+  );
 }

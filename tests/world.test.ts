@@ -1,8 +1,16 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  CRYSTAL_POSITIONS, LAKE, SPAWN_POSITION, WORLD_BOUNDS, WORLD_OBSTACLES,
-  clampToWorld, getNavigationPath, getTerrainHeight, isWalkable, resolveMovement,
+  CRYSTAL_POSITIONS,
+  LAKE,
+  SPAWN_POSITION,
+  WORLD_BOUNDS,
+  WORLD_OBSTACLES,
+  clampToWorld,
+  getNavigationPath,
+  getTerrainHeight,
+  isWalkable,
+  resolveMovement,
   type WorldPoint,
 } from '../src/game/world';
 
@@ -10,19 +18,25 @@ const distance = (a: WorldPoint, b: WorldPoint) => Math.hypot(a.x - b.x, a.z - b
 
 function assertSafeRoute(from: WorldPoint, destination: WorldPoint) {
   const route = getNavigationPath(from, destination);
-  assert.ok(route.length > 0, `No route from ${JSON.stringify(from)} to ${JSON.stringify(destination)}`);
+  assert.ok(
+    route.length > 0,
+    `No route from ${JSON.stringify(from)} to ${JSON.stringify(destination)}`,
+  );
   assert.deepEqual(route.at(-1), destination);
   let current = from;
   for (const waypoint of route) {
     // Check between waypoints, where shortcutting might otherwise clip a tree or shore.
     const samples = Math.max(1, Math.ceil(distance(current, waypoint) / 0.1));
     for (let i = 0; i <= samples; i++) {
-      const x = current.x + (waypoint.x - current.x) * i / samples;
-      const z = current.z + (waypoint.z - current.z) * i / samples;
+      const x = current.x + ((waypoint.x - current.x) * i) / samples;
+      const z = current.z + ((waypoint.z - current.z) * i) / samples;
       assert.equal(isWalkable(x, z), true, `Route crosses a blocked point at ${x}, ${z}`);
     }
     const arrived = resolveMovement(current, waypoint);
-    assert.ok(distance(arrived, waypoint) < 0.001, `Movement cannot follow route to ${JSON.stringify(waypoint)}`);
+    assert.ok(
+      distance(arrived, waypoint) < 0.001,
+      `Movement cannot follow route to ${JSON.stringify(waypoint)}`,
+    );
     current = waypoint;
   }
   return route;
@@ -40,19 +54,23 @@ test('the player can spawn safely and all three collectible locations are distin
 
 test('every collectible can be reached from spawn and from every other collectible', () => {
   const stops = [SPAWN_POSITION, ...CRYSTAL_POSITIONS];
-  for (const from of stops) for (const destination of stops) {
-    if (from !== destination) assertSafeRoute(from, destination);
-  }
+  for (const from of stops)
+    for (const destination of stops) {
+      if (from !== destination) assertSafeRoute(from, destination);
+    }
 });
 
 test('click navigation takes a traversable route around the lake instead of crossing water', () => {
   const from = { x: LAKE.x, z: -25 };
   const destination = { x: LAKE.x, z: 14 };
   const route = assertSafeRoute(from, destination);
-  assert.ok(route.some(point => Math.abs(point.x - LAKE.x) > 5));
+  assert.ok(route.some((point) => Math.abs(point.x - LAKE.x) > 5));
   const directDistance = distance(from, destination);
   const stops = [from, ...route];
-  const routeLength = route.reduce((length, point, index) => length + distance(stops[index], point), 0);
+  const routeLength = route.reduce(
+    (length, point, index) => length + distance(stops[index], point),
+    0,
+  );
   assert.ok(routeLength > directDistance);
 });
 
@@ -72,15 +90,32 @@ test('a large movement step cannot tunnel across water or a solid ruin pillar', 
 
 test('movement stops inside every map edge, including when the destination lies far outside', () => {
   const edges = [
-    { start: (n: number) => ({ x: WORLD_BOUNDS.minX + 2, z: n }), end: (n: number) => ({ x: WORLD_BOUNDS.minX - 100, z: n }) },
-    { start: (n: number) => ({ x: WORLD_BOUNDS.maxX - 2, z: n }), end: (n: number) => ({ x: WORLD_BOUNDS.maxX + 100, z: n }) },
-    { start: (n: number) => ({ x: n, z: WORLD_BOUNDS.minZ + 2 }), end: (n: number) => ({ x: n, z: WORLD_BOUNDS.minZ - 100 }) },
-    { start: (n: number) => ({ x: n, z: WORLD_BOUNDS.maxZ - 2 }), end: (n: number) => ({ x: n, z: WORLD_BOUNDS.maxZ + 100 }) },
+    {
+      start: (n: number) => ({ x: WORLD_BOUNDS.minX + 2, z: n }),
+      end: (n: number) => ({ x: WORLD_BOUNDS.minX - 100, z: n }),
+    },
+    {
+      start: (n: number) => ({ x: WORLD_BOUNDS.maxX - 2, z: n }),
+      end: (n: number) => ({ x: WORLD_BOUNDS.maxX + 100, z: n }),
+    },
+    {
+      start: (n: number) => ({ x: n, z: WORLD_BOUNDS.minZ + 2 }),
+      end: (n: number) => ({ x: n, z: WORLD_BOUNDS.minZ - 100 }),
+    },
+    {
+      start: (n: number) => ({ x: n, z: WORLD_BOUNDS.maxZ - 2 }),
+      end: (n: number) => ({ x: n, z: WORLD_BOUNDS.maxZ + 100 }),
+    },
   ];
   for (const edge of edges) {
-    const coordinate = Array.from({ length: 21 }, (_, i) => i - 10)
-      .find(n => isWalkable(edge.start(n).x, edge.start(n).z));
-    assert.notEqual(coordinate, undefined, 'Each edge should have an accessible boundary test point');
+    const coordinate = Array.from({ length: 21 }, (_, i) => i - 10).find((n) =>
+      isWalkable(edge.start(n).x, edge.start(n).z),
+    );
+    assert.notEqual(
+      coordinate,
+      undefined,
+      'Each edge should have an accessible boundary test point',
+    );
     const start = edge.start(coordinate!);
     const result = resolveMovement(start, edge.end(coordinate!));
     assert.equal(isWalkable(result.x, result.z), true);

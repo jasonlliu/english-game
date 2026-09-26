@@ -2,9 +2,22 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { createInitialProgress, getTodayKey } from '../src/game/progress';
 import {
-  ADVENTURE_STORAGE_KEYS, PETS, REGION_IDS, REGIONS, advanceDemoDay, capturePet,
-  changeRegion, collectSeal, createAdventure, getUnlockedRegions, isCaptureHit,
-  loadAdventure, resetRegionSeals, saveAdventure, selectCompanion, visitAdventure,
+  ADVENTURE_STORAGE_KEYS,
+  PETS,
+  REGION_IDS,
+  REGIONS,
+  advanceDemoDay,
+  capturePet,
+  changeRegion,
+  collectSeal,
+  createAdventure,
+  getUnlockedRegions,
+  isCaptureHit,
+  loadAdventure,
+  resetRegionSeals,
+  saveAdventure,
+  selectCompanion,
+  visitAdventure,
   type Adventure,
 } from '../src/game/adventure';
 
@@ -39,8 +52,11 @@ test('a new adventure owns the original companion and has one accessible region'
   assert.equal(state.currentRegion, 'meadow');
   assert.deepEqual(state.visitedDates, []);
   assert.deepEqual(getUnlockedRegions(state), ['meadow']);
-  assert.deepEqual(REGION_IDS.map(id => REGIONS[id].day), [1, 2, 3, 4, 5, 6]);
-  assert.equal(new Set(REGION_IDS.map(id => REGIONS[id].petId)).size, 6);
+  assert.deepEqual(
+    REGION_IDS.map((id) => REGIONS[id].day),
+    [1, 2, 3, 4, 5, 6],
+  );
+  assert.equal(new Set(REGION_IDS.map((id) => REGIONS[id].petId)).size, 6);
   for (const id of REGION_IDS) assert.equal(PETS[REGIONS[id].petId].region, id);
 });
 
@@ -60,7 +76,15 @@ test('visiting counts each distinct local day once without awarding learning XP'
 
 test('six visits unlock all regions, gaps do not reset progress and invalid dates do not count', () => {
   let state = createAdventure('real');
-  for (const date of ['2026-01-01', '2026-01-04', '2026-02-12', '2026-04-02', '2026-05-03', '2026-09-26', '2026-10-04']) {
+  for (const date of [
+    '2026-01-01',
+    '2026-01-04',
+    '2026-02-12',
+    '2026-04-02',
+    '2026-05-03',
+    '2026-09-26',
+    '2026-10-04',
+  ]) {
     state = visitAdventure(state, undefined, date);
   }
   assert.deepEqual(getUnlockedRegions(state), REGION_IDS);
@@ -71,7 +95,10 @@ test('six visits unlock all regions, gaps do not reset progress and invalid date
 });
 
 test('existing check-in dates migrate once, only within the matching real or demo mode', () => {
-  const progress = { ...createInitialProgress('real'), completedDates: ['2025-04-03', '2025-04-03', '2025-04-06', 'invalid'] };
+  const progress = {
+    ...createInitialProgress('real'),
+    completedDates: ['2025-04-03', '2025-04-03', '2025-04-06', 'invalid'],
+  };
   const state = createAdventure('real', progress);
   assert.deepEqual(state.visitedDates, ['2025-04-03', '2025-04-06']);
   assert.deepEqual(getUnlockedRegions(state), ['meadow', 'water']);
@@ -92,7 +119,8 @@ test('demo advance unlocks exactly the next day up to six and cannot advance rea
   assert.deepEqual(advanceDemoDay(demo), demo);
   assert.deepEqual(demo.visitedDates, []);
   const migrated = createAdventure('demo', {
-    ...createInitialProgress('demo'), completedDates: ['2025-03-01', '2025-03-02', '2025-03-03'],
+    ...createInitialProgress('demo'),
+    completedDates: ['2025-03-01', '2025-03-02', '2025-03-03'],
   });
   assert.equal(getUnlockedRegions(advanceDemoDay(migrated)).length, 4);
 });
@@ -170,7 +198,9 @@ test('opening records today durably; real and demo adventure saves remain separa
   const storage = installStorage();
   const real = loadAdventure('real', createInitialProgress('real'));
   assert.deepEqual(real.visitedDates, [getTodayKey()]);
-  assert.deepEqual(JSON.parse(storage.get(ADVENTURE_STORAGE_KEYS.real)!).visitedDates, [getTodayKey()]);
+  assert.deepEqual(JSON.parse(storage.get(ADVENTURE_STORAGE_KEYS.real)!).visitedDates, [
+    getTodayKey(),
+  ]);
   assert.deepEqual(loadAdventure('real'), real);
   let demo = loadAdventure('demo');
   for (let i = 0; i < 5; i++) demo = advanceDemoDay(demo);
@@ -182,11 +212,19 @@ test('opening records today durably; real and demo adventure saves remain separa
 
 test('malformed saves cannot grant locked regions or unknown pets and repairs seal duplicates', () => {
   const storage = installStorage();
-  storage.set(ADVENTURE_STORAGE_KEYS.real, JSON.stringify({
-    version: 1, mode: 'real', visitedDates: [getTodayKey(), getTodayKey(), '2026-02-31', 4], demoDays: 999,
-    currentRegion: 'fairy', capturedPets: ['ember', 'ember', 'lumi', '__proto__', 'unicorn'], activePet: 'lumi',
-    seals: { meadow: [0, 0, 1, 7, '2', null], fairy: [0, 1, 2] },
-  }));
+  storage.set(
+    ADVENTURE_STORAGE_KEYS.real,
+    JSON.stringify({
+      version: 1,
+      mode: 'real',
+      visitedDates: [getTodayKey(), getTodayKey(), '2026-02-31', 4],
+      demoDays: 999,
+      currentRegion: 'fairy',
+      capturedPets: ['ember', 'ember', 'lumi', '__proto__', 'unicorn'],
+      activePet: 'lumi',
+      seals: { meadow: [0, 0, 1, 7, '2', null], fairy: [0, 1, 2] },
+    }),
+  );
   const repaired = loadAdventure('real');
   assert.equal(repaired.demoDays, 0);
   assert.equal(repaired.currentRegion, 'meadow');
@@ -195,7 +233,13 @@ test('malformed saves cannot grant locked regions or unknown pets and repairs se
   assert.deepEqual(repaired.seals.meadow, [0, 1]);
   assert.deepEqual(repaired.seals.fairy, []);
   assert.deepEqual(getUnlockedRegions(repaired), ['meadow']);
-  for (const raw of ['bad json', 'null', '[]', '{"version":9}', JSON.stringify(createAdventure('demo'))]) {
+  for (const raw of [
+    'bad json',
+    'null',
+    '[]',
+    '{"version":9}',
+    JSON.stringify(createAdventure('demo')),
+  ]) {
     storage.set(ADVENTURE_STORAGE_KEYS.real, raw);
     const recovered = loadAdventure('real');
     assert.deepEqual(recovered.capturedPets, ['ember']);
@@ -205,7 +249,12 @@ test('malformed saves cannot grant locked regions or unknown pets and repairs se
 });
 
 test('blocked storage still supports an in-memory adventure without throwing', () => {
-  Object.defineProperty(globalThis, 'localStorage', { configurable: true, get: () => { throw new Error('blocked'); } });
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    get: () => {
+      throw new Error('blocked');
+    },
+  });
   const state = loadAdventure('demo');
   assert.deepEqual(state.visitedDates, [getTodayKey()]);
   assert.equal(saveAdventure('demo', state), false);
@@ -213,13 +262,17 @@ test('blocked storage still supports an in-memory adventure without throwing', (
 });
 
 test('capture timing uses three inclusive windows and rejects invalid phases or attempts', () => {
-  for (const [attempt, center, width] of [[0, .3, .14], [1, .65, .12], [2, .45, .10]]) {
+  for (const [attempt, center, width] of [
+    [0, 0.3, 0.14],
+    [1, 0.65, 0.12],
+    [2, 0.45, 0.1],
+  ]) {
     assert.equal(isCaptureHit(center, attempt), true);
     assert.equal(isCaptureHit(center - width, attempt), true);
     assert.equal(isCaptureHit(center + width, attempt), true);
-    assert.equal(isCaptureHit(center - width - .001, attempt), false);
-    assert.equal(isCaptureHit(center + width + .001, attempt), false);
+    assert.equal(isCaptureHit(center - width - 0.001, attempt), false);
+    assert.equal(isCaptureHit(center + width + 0.001, attempt), false);
   }
-  for (const phase of [-.01, 1.01, NaN, Infinity]) assert.equal(isCaptureHit(phase, 0), false);
-  for (const attempt of [-1, 3, 1.5, NaN]) assert.equal(isCaptureHit(.3, attempt), false);
+  for (const phase of [-0.01, 1.01, NaN, Infinity]) assert.equal(isCaptureHit(phase, 0), false);
+  for (const attempt of [-1, 3, 1.5, NaN]) assert.equal(isCaptureHit(0.3, attempt), false);
 });

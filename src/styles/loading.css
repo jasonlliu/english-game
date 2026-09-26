@@ -1,0 +1,73 @@
+/* Code and scenery load independently; the HUD stays usable while waiting. */
+.loading-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 180px;
+  color: #ebeedc;
+  text-align: center;
+  padding: 30px;
+}
+.world-stage > .loading-view {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 55% 65%, #8fa89b, #345663);
+  min-height: 100%;
+}
+.loading-orbit {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  border: 1px solid #fff3ce66;
+  border-radius: 50%;
+  font-size: 33px;
+  color: #f4e0ab;
+  animation: load-orbit 2s ease-in-out infinite;
+}
+.loading-view p {
+  font-size: 12px;
+  line-height: 1.8;
+  max-width: 260px;
+}
+.loading-view h2 {
+  font-size: 21px;
+  font-weight: 500;
+}
+.loading-view button {
+  border-radius: 18px;
+  padding: 10px 20px;
+  background: #f2e5c7;
+  color: #3a5b5d;
+  font-size: 12px;
+}
+.loading-view .reload-page {
+  background: transparent;
+  border: 1px solid #deead444;
+  color: inherit;
+}
+.modal .loading-view {
+  color: #637d69;
+}
+.modal .loading-orbit {
+  border-color: #8d9f8550;
+  color: #8a9673;
+}
+.loading-failed {
+  pointer-events: auto;
+  z-index: 5;
+}
+.portrait-fallback {
+  display: inline-grid;
+  place-items: center;
+  min-height: 40px;
+  color: #b6c7a5;
+}
+@keyframes load-orbit {
+  50% {
+    transform: rotate(30deg) scale(0.94);
+    opacity: 0.55;
+  }
+}

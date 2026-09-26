@@ -18,17 +18,20 @@ export function createExploration(mode: Mode): Exploration {
   return { version: 1, mode, crystals: [], totalTreasures: 0, stars: 0, treasureOpened: false };
 }
 
-function sanitizeExploration(value: unknown, mode: Mode): Exploration {
+export function sanitizeExploration(value: unknown, mode: Mode): Exploration {
   if (!value || typeof value !== 'object') return createExploration(mode);
   const record = value as Record<string, unknown>;
   if (record.version !== 1 || record.mode !== mode || !Array.isArray(record.crystals)) {
     return createExploration(mode);
   }
-  const crystals = [...new Set(record.crystals.filter((id): id is number => id === 0 || id === 1 || id === 2))];
+  const crystals = [
+    ...new Set(record.crystals.filter((id): id is number => id === 0 || id === 1 || id === 2)),
+  ];
   const treasureOpened = record.treasureOpened === true && crystals.length === 3;
-  const count = typeof record.totalTreasures === 'number' && Number.isSafeInteger(record.totalTreasures)
-    ? Math.min(Math.max(0, record.totalTreasures), Math.floor(Number.MAX_SAFE_INTEGER / 3) - 1)
-    : 0;
+  const count =
+    typeof record.totalTreasures === 'number' && Number.isSafeInteger(record.totalTreasures)
+      ? Math.min(Math.max(0, record.totalTreasures), Math.floor(Number.MAX_SAFE_INTEGER / 3) - 1)
+      : 0;
   const totalTreasures = Math.max(treasureOpened ? 1 : 0, count);
   return { version: 1, mode, crystals, totalTreasures, stars: totalTreasures * 3, treasureOpened };
 }
@@ -47,7 +50,10 @@ export function saveExploration(mode: Mode, state: Exploration): boolean {
   if (state.mode !== mode) return false;
   try {
     if (typeof localStorage === 'undefined') return false;
-    localStorage.setItem(EXPLORATION_STORAGE_KEYS[mode], JSON.stringify(sanitizeExploration(state, mode)));
+    localStorage.setItem(
+      EXPLORATION_STORAGE_KEYS[mode],
+      JSON.stringify(sanitizeExploration(state, mode)),
+    );
     return true;
   } catch {
     return false;
@@ -55,7 +61,10 @@ export function saveExploration(mode: Mode, state: Exploration): boolean {
 }
 
 /** Exploration rewards are independent of the daily check-in XP. */
-export function collectCrystal(state: Exploration, id: 0 | 1 | 2): { state: Exploration; collected: boolean } {
+export function collectCrystal(
+  state: Exploration,
+  id: 0 | 1 | 2,
+): { state: Exploration; collected: boolean } {
   const current = sanitizeExploration(state, state.mode);
   if (![0, 1, 2].includes(id) || current.treasureOpened || current.crystals.includes(id)) {
     return { state: current, collected: false };
@@ -65,9 +74,15 @@ export function collectCrystal(state: Exploration, id: 0 | 1 | 2): { state: Expl
 
 export function openTreasure(state: Exploration): { state: Exploration; opened: boolean } {
   const current = sanitizeExploration(state, state.mode);
-  if (current.treasureOpened || current.crystals.length !== 3) return { state: current, opened: false };
+  if (current.treasureOpened || current.crystals.length !== 3)
+    return { state: current, opened: false };
   return {
-    state: { ...current, treasureOpened: true, totalTreasures: current.totalTreasures + 1, stars: current.stars + 3 },
+    state: {
+      ...current,
+      treasureOpened: true,
+      totalTreasures: current.totalTreasures + 1,
+      stars: current.stars + 3,
+    },
     opened: true,
   };
 }

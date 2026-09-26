@@ -1,10 +1,22 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import {
-  completeMission, createInitialProgress, getNextEvolutionXp, getPetLevel,
-  getPetStage, getTodayKey, loadProgress, saveProgress, STORAGE_KEYS,
-  collectCrystal, createExploration, EXPLORATION_STORAGE_KEYS, loadExploration,
-  openTreasure, resetExpedition, saveExploration,
+  completeMission,
+  createInitialProgress,
+  getNextEvolutionXp,
+  getPetLevel,
+  getPetStage,
+  getTodayKey,
+  loadProgress,
+  saveProgress,
+  STORAGE_KEYS,
+  collectCrystal,
+  createExploration,
+  EXPLORATION_STORAGE_KEYS,
+  loadExploration,
+  openTreasure,
+  resetExpedition,
+  saveExploration,
 } from '../src/game/index';
 
 const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
@@ -15,7 +27,9 @@ function installStorage() {
     configurable: true,
     value: {
       getItem: (key: string) => values.get(key) ?? null,
-      setItem: (key: string, value: string) => { values.set(key, value); },
+      setItem: (key: string, value: string) => {
+        values.set(key, value);
+      },
     },
   });
   return values;
@@ -91,7 +105,13 @@ test('real and demo saves are separate, durable and cannot be cross-written', ()
 
 test('invalid JSON, unknown versions and stored mode mismatches recover safely', () => {
   const values = installStorage();
-  for (const raw of ['{oops', 'null', '[]', '{"version":9}', JSON.stringify(createInitialProgress('demo'))]) {
+  for (const raw of [
+    '{oops',
+    'null',
+    '[]',
+    '{"version":9}',
+    JSON.stringify(createInitialProgress('demo')),
+  ]) {
     values.set(STORAGE_KEYS.real, raw);
     assert.deepEqual(loadProgress('real'), createInitialProgress('real'));
   }
@@ -99,11 +119,17 @@ test('invalid JSON, unknown versions and stored mode mismatches recover safely',
 
 test('XP and counts are repaired from unique valid reward receipts', () => {
   const values = installStorage();
-  values.set(STORAGE_KEYS.real, JSON.stringify({
-    version: 1, mode: 'real', xp: 90000000, totalMissions: -123,
-    completedMissionIds: ['a', 'a', '', null, 'b', 'c'],
-    completedDates: ['2026-09-26', '2026-09-26', '2026-09-27', '2026-02-31', 'nope'],
-  }));
+  values.set(
+    STORAGE_KEYS.real,
+    JSON.stringify({
+      version: 1,
+      mode: 'real',
+      xp: 90000000,
+      totalMissions: -123,
+      completedMissionIds: ['a', 'a', '', null, 'b', 'c'],
+      completedDates: ['2026-09-26', '2026-09-26', '2026-09-27', '2026-02-31', 'nope'],
+    }),
+  );
   const repaired = loadProgress('real');
   assert.equal(repaired.xp, 80);
   assert.equal(repaired.totalMissions, 2);
@@ -117,14 +143,20 @@ test('blocked storage and an SSR environment do not throw', () => {
   assert.equal(saveProgress('real', createInitialProgress('real')), false);
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
-    get: () => { throw new Error('Storage blocked'); },
+    get: () => {
+      throw new Error('Storage blocked');
+    },
   });
   assert.deepEqual(loadProgress('demo'), createInitialProgress('demo'));
   assert.equal(saveProgress('demo', createInitialProgress('demo')), false);
 });
 
 test('empty missions and invalid dates cannot generate rewards', () => {
-  for (const [id, day] of [['', '2026-09-26'], ['   ', '2026-09-26'], ['valid', '2026-02-31']]) {
+  for (const [id, day] of [
+    ['', '2026-09-26'],
+    ['   ', '2026-09-26'],
+    ['valid', '2026-02-31'],
+  ]) {
     const result = completeMission(createInitialProgress(), id, day);
     assert.equal(result.rewarded, false);
     assert.equal(result.progress.xp, 0);
@@ -133,7 +165,10 @@ test('empty missions and invalid dates cannot generate rewards', () => {
 
 test('today uses local year, month and day', () => {
   const date = new Date();
-  assert.equal(getTodayKey(), `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`);
+  assert.equal(
+    getTodayKey(),
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
+  );
 });
 
 test('exploration requires three distinct crystals before opening a treasure', () => {
@@ -193,9 +228,17 @@ test('invalid exploration saves recover and malformed crystals cannot unlock a t
   const values = installStorage();
   values.set(EXPLORATION_STORAGE_KEYS.real, 'broken JSON');
   assert.deepEqual(loadExploration('real'), createExploration('real'));
-  values.set(EXPLORATION_STORAGE_KEYS.real, JSON.stringify({
-    version: 1, mode: 'real', crystals: [0, 0, 0, 3, '1'], totalTreasures: -4, stars: 999, treasureOpened: true,
-  }));
+  values.set(
+    EXPLORATION_STORAGE_KEYS.real,
+    JSON.stringify({
+      version: 1,
+      mode: 'real',
+      crystals: [0, 0, 0, 3, '1'],
+      totalTreasures: -4,
+      stars: 999,
+      treasureOpened: true,
+    }),
+  );
   const recovered = loadExploration('real');
   assert.deepEqual(recovered.crystals, [0]);
   assert.equal(recovered.stars, 0);

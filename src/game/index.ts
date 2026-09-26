@@ -1,2 +1,2 @@
-export * from './progress';
 export * from './exploration';
+export * from './progress';

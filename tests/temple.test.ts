@@ -2,8 +2,13 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { REGION_IDS, type RegionId } from '../src/game/adventure';
 import {
-  TEMPLE_STORAGE_KEYS, TEMPLE_THEMES, activateTempleSeal, completeTemple,
-  createTempleProgress, loadTempleProgress, saveTempleProgress,
+  TEMPLE_STORAGE_KEYS,
+  TEMPLE_THEMES,
+  activateTempleSeal,
+  completeTemple,
+  createTempleProgress,
+  loadTempleProgress,
+  saveTempleProgress,
 } from '../src/game/temple';
 
 const originalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
@@ -26,17 +31,20 @@ afterEach(() => {
 });
 
 test('each temple has a different valid lamp order and a clue that spells out that order', () => {
-  assert.equal(new Set(REGION_IDS.map(region => TEMPLE_THEMES[region].order.join(','))).size, 6);
-  assert.equal(new Set(REGION_IDS.map(region => TEMPLE_THEMES[region].artifact)).size, 6);
+  assert.equal(new Set(REGION_IDS.map((region) => TEMPLE_THEMES[region].order.join(','))).size, 6);
+  assert.equal(new Set(REGION_IDS.map((region) => TEMPLE_THEMES[region].artifact)).size, 6);
   for (const region of REGION_IDS) {
     const theme = TEMPLE_THEMES[region];
     assert.deepEqual([...theme.order].sort(), [0, 1, 2]);
     assert.equal(new Set(theme.sealNames).size, 3);
-    const namedOrder = theme.order.map(id => theme.sealNames[id]);
+    const namedOrder = theme.order.map((id) => theme.sealNames[id]);
     let previous = -1;
     for (const name of namedOrder) {
       const position = theme.clue.indexOf(name);
-      assert.ok(position > previous, `The clue for ${region} must name the lamps in their required order`);
+      assert.ok(
+        position > previous,
+        `The clue for ${region} must name the lamps in their required order`,
+      );
       previous = position;
     }
     assert.ok(theme.name && theme.subtitle && theme.story && theme.color);
@@ -65,14 +73,22 @@ test('pressing an already lit lamp keeps progress and cannot count the same lamp
   const repeat = activateTempleSeal(one, order[0], order);
   assert.deepEqual(repeat, { sequence: one, correct: true, solved: false });
   const two = activateTempleSeal(one, order[1], order).sequence;
-  assert.deepEqual(activateTempleSeal(two, order[0], order), { sequence: two, correct: true, solved: false });
+  assert.deepEqual(activateTempleSeal(two, order[0], order), {
+    sequence: two,
+    correct: true,
+    solved: false,
+  });
 });
 
 test('a wrong new lamp resets the lights and unlimited retries can still solve the puzzle', () => {
   const order = TEMPLE_THEMES.water.order;
   for (let attempt = 0; attempt < 10; attempt++) {
     const first = activateTempleSeal([], order[0], order).sequence;
-    assert.deepEqual(activateTempleSeal(first, order[2], order), { sequence: [], correct: false, solved: false });
+    assert.deepEqual(activateTempleSeal(first, order[2], order), {
+      sequence: [],
+      correct: false,
+      solved: false,
+    });
   }
   let sequence: number[] = [];
   for (const id of order) sequence = activateTempleSeal(sequence, id, order).sequence;
@@ -83,23 +99,43 @@ test('a solved puzzle remains solved and unchanged after further presses', () =>
   for (const region of REGION_IDS) {
     const order = TEMPLE_THEMES[region].order;
     for (const id of [0, 1, 2, 9, NaN]) {
-      assert.deepEqual(activateTempleSeal([...order], id, order), { sequence: order, correct: true, solved: true });
+      assert.deepEqual(activateTempleSeal([...order], id, order), {
+        sequence: order,
+        correct: true,
+        solved: true,
+      });
     }
   }
 });
 
 test('invalid IDs, damaged sequences and invalid orders cannot create a solved puzzle', () => {
   const order = TEMPLE_THEMES.meadow.order;
-  for (const id of [-1, 3, .5, NaN, Infinity]) {
-    assert.deepEqual(activateTempleSeal([0], id, order), { sequence: [0], correct: false, solved: false });
+  for (const id of [-1, 3, 0.5, NaN, Infinity]) {
+    assert.deepEqual(activateTempleSeal([0], id, order), {
+      sequence: [0],
+      correct: false,
+      solved: false,
+    });
   }
   for (const sequence of [[0, 0, 0], [0, 2, 1], [0, 1, 2, 2], [NaN], new Array<number>(3)]) {
     const result = activateTempleSeal(sequence, 0, order);
     assert.equal(result.solved, false);
     assert.deepEqual(result.sequence, [0]);
   }
-  for (const badOrder of [[], [0], [0, 0, 1], [0, 1, 3], [0, 1, NaN], [0, 1, 2, 3], new Array<number>(3)]) {
-    assert.deepEqual(activateTempleSeal([0, 1], 2, badOrder), { sequence: [], correct: false, solved: false });
+  for (const badOrder of [
+    [],
+    [0],
+    [0, 0, 1],
+    [0, 1, 3],
+    [0, 1, NaN],
+    [0, 1, 2, 3],
+    new Array<number>(3),
+  ]) {
+    assert.deepEqual(activateTempleSeal([0, 1], 2, badOrder), {
+      sequence: [],
+      correct: false,
+      solved: false,
+    });
   }
 });
 
@@ -137,13 +173,24 @@ test('real and demo temple collections persist separately and cannot cross-write
 
 test('corrupt saves recover and invalid or duplicated completion IDs are discarded', () => {
   const values = installStorage();
-  for (const raw of ['broken JSON', 'null', '[]', '{"version":9}', JSON.stringify(createTempleProgress('demo'))]) {
+  for (const raw of [
+    'broken JSON',
+    'null',
+    '[]',
+    '{"version":9}',
+    JSON.stringify(createTempleProgress('demo')),
+  ]) {
     values.set(TEMPLE_STORAGE_KEYS.real, raw);
     assert.deepEqual(loadTempleProgress('real'), createTempleProgress('real'));
   }
-  values.set(TEMPLE_STORAGE_KEYS.real, JSON.stringify({
-    version: 1, mode: 'real', completed: ['meadow', 'meadow', 'steel', 'unknown', 2, null, '__proto__'],
-  }));
+  values.set(
+    TEMPLE_STORAGE_KEYS.real,
+    JSON.stringify({
+      version: 1,
+      mode: 'real',
+      completed: ['meadow', 'meadow', 'steel', 'unknown', 2, null, '__proto__'],
+    }),
+  );
   assert.deepEqual(loadTempleProgress('real').completed, ['meadow', 'steel']);
 });
 
@@ -151,7 +198,12 @@ test('missing or blocked browser storage does not break a temple session', () =>
   Reflect.deleteProperty(globalThis, 'localStorage');
   assert.deepEqual(loadTempleProgress('real'), createTempleProgress('real'));
   assert.equal(saveTempleProgress('real', createTempleProgress('real')), false);
-  Object.defineProperty(globalThis, 'localStorage', { configurable: true, get: () => { throw new Error('blocked'); } });
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    get: () => {
+      throw new Error('blocked');
+    },
+  });
   const state = completeTemple(loadTempleProgress('demo'), 'earth').state;
   assert.deepEqual(state.completed, ['earth']);
   assert.equal(saveTempleProgress('demo', state), false);

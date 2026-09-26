@@ -1,0 +1,613 @@
+/* Discoverable architecture and the walkable sanctuary. */
+.temple-discover {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  pointer-events: auto;
+  color: #fff2cb;
+  border: 1px solid #fff0c648;
+  background: #273f466e;
+  border-radius: 20px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  font-size: 10px;
+  backdrop-filter: blur(12px);
+}
+.temple-enter-prompt {
+  position: absolute;
+  bottom: 162px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+  background: #faf5e7ed;
+  border: 1px solid #f8e8bd;
+  border-radius: 13px;
+  padding: 12px 17px;
+  color: #5f7462;
+  text-align: center;
+  box-shadow: 0 8px 25px #253d3825;
+  font-size: 11px;
+  pointer-events: auto;
+}
+.temple-enter-prompt button {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 15px;
+  background: #566d66;
+  color: #fff4d4;
+  border-radius: 8px;
+}
+.temple-enter-prompt small {
+  font-size: 9px;
+}
+.landmark-list-heading {
+  margin-top: 22px !important;
+}
+.landmark-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.landmark-list > button {
+  display: flex;
+  gap: 11px;
+  text-align: left;
+  align-items: center;
+  padding: 14px;
+  background: #fffdf4;
+  border: 1px solid #b8c2a548;
+  border-radius: 11px;
+  color: #637e70;
+}
+.landmark-list > button:hover {
+  background: #e7eddb;
+}
+.landmark-list > button > span {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: #e6ecd9;
+  width: 37px;
+  height: 42px;
+  border-radius: 10px;
+}
+.landmark-list > button > div {
+  flex: 1;
+}
+.landmark-list b {
+  font-size: 11px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+.landmark-list em {
+  font-size: 7px;
+  font-style: normal;
+  color: #9a865e;
+  background: #f2ead6;
+  border-radius: 4px;
+  padding: 3px 5px;
+}
+.landmark-list p {
+  font-size: 9px;
+  line-height: 1.7;
+  margin-top: 5px;
+  color: #939c88;
+}
+.landmark-list > button > svg {
+  flex-shrink: 0;
+}
+.artifact-collection {
+  margin-top: 28px;
+  padding-top: 23px;
+  border-top: 1px solid #c4c9b8;
+}
+.artifact-collection > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.artifact-collection h3 {
+  font-size: 16px;
+}
+.artifact-collection > div > span {
+  font-size: 10px;
+  color: #8c987d;
+}
+.artifact-collection > p {
+  font-size: 10px;
+  margin-top: 8px;
+}
+.artifact-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 15px;
+}
+.artifact-grid article {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  background: #e3e8dc66;
+  border-radius: 11px;
+  padding: 17px 5px;
+  gap: 7px;
+  color: #929b8a;
+}
+.artifact-grid article.found {
+  background: color-mix(in srgb, var(--artifact-color) 18%, #fffcef);
+  color: #66765f;
+  border: 1px solid color-mix(in srgb, var(--artifact-color) 60%, transparent);
+}
+.artifact-grid article > span {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  color: #97a28b;
+}
+.artifact-grid article.found > span {
+  color: #958053;
+  background: color-mix(in srgb, var(--artifact-color) 35%, transparent);
+  border-radius: 50%;
+}
+.artifact-grid b {
+  font-size: 10px;
+}
+.artifact-grid small {
+  font-size: 8px;
+  opacity: 0.75;
+}
+.temple-reward {
+  text-align: center;
+}
+.temple-reward > p {
+  margin-top: 12px;
+  line-height: 1.9;
+}
+.artifact-emblem {
+  width: 155px;
+  height: 155px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin: 10px auto 35px;
+  color: #a28657;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--artifact-color) 42%, transparent),
+    transparent 67%
+  );
+}
+.artifact-emblem i {
+  position: absolute;
+  inset: 8px;
+  border: 1px solid #bcab7359;
+  border-radius: 50%;
+  transform: rotate(-25deg) scaleX(0.65);
+}
+.artifact-emblem i:last-child {
+  transform: rotate(35deg) scaleX(0.7);
+  inset: -2px;
+}
+.inside-temple > .world-title,
+.inside-temple > .adventure-objective,
+.inside-temple > .minimap-hud,
+.inside-temple > .flight-hud,
+.inside-temple > .movement-help,
+.inside-temple > .world-tools,
+.inside-temple > .companion-hud {
+  display: none;
+}
+.inside-temple > .hud-vignette {
+  pointer-events: none;
+  background: linear-gradient(180deg, #15242d68, transparent 28%, transparent 70%, #1c25375c);
+}
+.temple-scene,
+.temple-canvas {
+  position: absolute;
+  inset: 0;
+}
+.temple-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.temple-objective {
+  position: absolute;
+  top: 124px;
+  left: 37px;
+  width: 285px;
+  background: #182b38dc;
+  border: 1px solid #e9d2a038;
+  border-radius: 15px;
+  color: #efe9d6;
+  backdrop-filter: blur(18px);
+  padding: 17px;
+  box-shadow: 0 10px 40px #10202d25;
+  z-index: 3;
+}
+.temple-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  color: inherit;
+  text-align: left;
+  background: none;
+  padding: 0;
+}
+.temple-heading small {
+  display: block;
+  font-size: 7px;
+  letter-spacing: 1.5px;
+  color: var(--temple-accent);
+  opacity: 0.85;
+}
+.temple-heading strong {
+  display: block;
+  font-size: 21px;
+  letter-spacing: 2px;
+  font-weight: 500;
+  margin-top: 7px;
+}
+.temple-heading > b {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--temple-accent);
+  padding: 8px;
+  border: 1px solid #e1d5b14d;
+  border-radius: 50%;
+}
+.temple-objective > p {
+  font-size: 10px;
+  color: #d0d5cc;
+  line-height: 1.8;
+  margin: 16px 0 12px;
+}
+.temple-lamps {
+  display: flex;
+  gap: 7px;
+}
+.temple-lamps > button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 10px;
+  color: #c4cece;
+  background: #effaff0a;
+  border: 1px solid #e4ead020;
+  border-radius: 9px;
+  padding: 11px 3px;
+}
+.temple-lamps > button:hover {
+  background: #ffffff1a;
+}
+.temple-lamps > button > span {
+  width: 26px;
+  height: 26px;
+  border: 1px solid #e0dac83f;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+.temple-lamps small {
+  font-size: 7px;
+  color: #879ca5;
+}
+.temple-lamps > button.lit {
+  color: var(--temple-accent);
+  background: color-mix(in srgb, var(--temple-accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--temple-accent) 45%, transparent);
+}
+.temple-lamps > button.lit > span {
+  border-color: var(--temple-accent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--temple-accent) 22%, transparent);
+}
+.temple-relic-route {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--temple-accent);
+  font-size: 10px;
+  padding: 11px 5px 0;
+  width: 100%;
+  background: none;
+}
+.temple-relic-route > span {
+  margin-left: auto;
+}
+.temple-exit {
+  position: absolute;
+  right: 37px;
+  top: 126px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  color: #f5e9ce;
+  border: 1px solid #e9d2a040;
+  background: #233946bd;
+  border-radius: 22px;
+  backdrop-filter: blur(14px);
+  font-size: 11px;
+  z-index: 3;
+}
+.temple-story {
+  position: absolute;
+  bottom: 107px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ede7d9;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #213440ce;
+  border: 1px solid #e3dac726;
+  border-radius: 10px;
+  padding: 12px 18px;
+  max-width: 510px;
+  width: max-content;
+  line-height: 1.8;
+  z-index: 3;
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+}
+.temple-story > svg {
+  color: var(--temple-accent);
+  flex-shrink: 0;
+}
+.temple-interact {
+  position: absolute;
+  bottom: 167px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 22px;
+  background: #f5e7c9f0;
+  border: 1px solid #fff6dd;
+  color: #4c6367;
+  border-radius: 30px;
+  font-size: 13px;
+  z-index: 4;
+  box-shadow: 0 6px 30px #15243430;
+}
+.temple-interact kbd {
+  border: 1px solid #8d998966;
+  border-radius: 5px;
+  padding: 3px 6px;
+  background: #83998716;
+  font-size: 10px;
+}
+.temple-controls-note {
+  position: absolute;
+  bottom: 57px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #f3eee0b8;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.temple-joystick {
+  display: none;
+}
+.temple-objective.collapsed {
+  padding-bottom: 17px;
+}
+@media (max-width: 850px) {
+  .temple-objective {
+    left: 25px;
+    top: 110px;
+    width: 250px;
+  }
+  .temple-exit {
+    right: 25px;
+    top: 110px;
+  }
+}
+@media (max-width: 600px) {
+  .temple-discover {
+    font-size: 8px;
+    padding: 6px 9px;
+    gap: 4px;
+    margin-top: 6px;
+  }
+  .landmark-list {
+    grid-template-columns: 1fr;
+  }
+  .landmark-list > button {
+    padding: 12px;
+  }
+  .artifact-grid {
+    gap: 7px;
+  }
+  .artifact-grid b {
+    font-size: 9px;
+  }
+  .artifact-grid small {
+    font-size: 7px;
+  }
+  .artifact-grid article {
+    padding: 12px 3px;
+  }
+  .temple-objective {
+    top: 90px;
+    left: 17px;
+    right: 17px;
+    width: auto;
+    padding: 13px 14px;
+    border-radius: 13px;
+  }
+  .temple-heading strong {
+    font-size: 19px;
+    margin-top: 5px;
+  }
+  .temple-heading small {
+    font-size: 6px;
+    letter-spacing: 1px;
+  }
+  .temple-heading > b {
+    margin-right: 94px;
+    font-size: 9px;
+    padding: 7px;
+  }
+  .temple-objective > p {
+    font-size: 9px;
+    margin: 11px 0 9px;
+  }
+  .temple-lamps {
+    gap: 8px;
+  }
+  .temple-lamps > button {
+    font-size: 10px;
+    padding: 9px 5px;
+    flex-direction: row;
+    gap: 6px;
+    justify-content: center;
+  }
+  .temple-lamps > button > span {
+    width: 20px;
+    height: 20px;
+  }
+  .temple-lamps small {
+    display: none;
+  }
+  .temple-exit {
+    top: 109px;
+    right: 29px;
+    padding: 8px 10px;
+    font-size: 9px;
+    border-radius: 17px;
+    background: #ffffff0b;
+  }
+  .temple-exit > svg {
+    width: 12px;
+  }
+  .temple-story {
+    bottom: 191px;
+    max-width: calc(100% - 34px);
+    font-size: 9px;
+    padding: 10px 12px;
+    width: max-content;
+    gap: 7px;
+  }
+  .temple-interact {
+    bottom: 255px;
+    font-size: 11px;
+    padding: 12px 19px;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  .temple-controls-note {
+    display: none;
+  }
+  .temple-enter-prompt {
+    bottom: 353px;
+    padding: 10px 13px;
+    font-size: 10px;
+    max-width: 240px;
+  }
+  .temple-enter-prompt small {
+    font-size: 8px;
+  }
+  .temple-relic-route {
+    font-size: 9px;
+    padding-top: 10px;
+  }
+  .inside-temple .toast {
+    bottom: 320px;
+  }
+}
+@media (pointer: coarse), (max-width: 760px) {
+  .temple-joystick {
+    position: absolute;
+    left: 26px;
+    bottom: 64px;
+    width: 104px;
+    height: 104px;
+    border: 1px solid #fcf1d849;
+    border-radius: 50%;
+    background: #d6e3e11c;
+    backdrop-filter: blur(6px);
+    display: grid;
+    place-items: center;
+    z-index: 5;
+    touch-action: none;
+    user-select: none;
+  }
+  .temple-joystick > span {
+    width: 42px;
+    height: 42px;
+    background: #f5eddb9c;
+    border: 1px solid #fff3d49f;
+    border-radius: 50%;
+    box-shadow: 0 3px 12px #172d4b15;
+    pointer-events: none;
+  }
+  .temple-controls-note {
+    display: none;
+  }
+}
+@media (max-height: 700px) and (max-width: 600px) {
+  .temple-objective {
+    top: 82px;
+  }
+  .temple-exit {
+    top: 100px;
+  }
+  .temple-story {
+    bottom: 160px;
+  }
+  .temple-interact {
+    bottom: 214px;
+  }
+  .temple-joystick {
+    bottom: 46px;
+    width: 90px;
+    height: 90px;
+  }
+  .temple-enter-prompt {
+    bottom: 333px;
+  }
+}
+.temple-quick-menu {
+  display: none;
+}
+@media (max-width: 760px) {
+  .temple-quick-menu {
+    display: flex;
+    position: absolute;
+    right: 24px;
+    bottom: 82px;
+    gap: 10px;
+    z-index: 4;
+  }
+  .temple-quick-menu > button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 51px;
+    height: 58px;
+    border: 1px solid #ede3c866;
+    background: #2339469e;
+    color: #f3e7c9;
+    border-radius: 16px;
+    font-size: 9px;
+    backdrop-filter: blur(10px);
+  }
+}

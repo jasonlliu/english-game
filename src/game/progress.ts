@@ -45,8 +45,12 @@ function isDateKey(value: unknown): value is string {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const [year, month, day] = value.split('-').map(Number);
   const date = new Date(`${value}T12:00:00Z`);
-  return Number.isFinite(date.getTime()) &&
-    date.getUTCFullYear() === year && date.getUTCMonth() + 1 === month && date.getUTCDate() === day;
+  return (
+    Number.isFinite(date.getTime()) &&
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() + 1 === month &&
+    date.getUTCDate() === day
+  );
 }
 
 function validMissionId(value: unknown): value is string {
@@ -54,11 +58,15 @@ function validMissionId(value: unknown): value is string {
 }
 
 /** XP and check-in count are derived from receipts, never trusted from storage. */
-function sanitizeProgress(value: unknown, mode: Mode): Progress {
+export function sanitizeProgress(value: unknown, mode: Mode): Progress {
   if (!value || typeof value !== 'object') return createInitialProgress(mode);
   const record = value as Record<string, unknown>;
-  if (record.version !== 1 || record.mode !== mode ||
-    !Array.isArray(record.completedMissionIds) || !Array.isArray(record.completedDates)) {
+  if (
+    record.version !== 1 ||
+    record.mode !== mode ||
+    !Array.isArray(record.completedMissionIds) ||
+    !Array.isArray(record.completedDates)
+  ) {
     return createInitialProgress(mode);
   }
 
