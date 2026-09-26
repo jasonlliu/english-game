@@ -26,6 +26,7 @@ export default function GameShell({ game }: { game: AdventureController }) {
     templeProgress,
     discovery,
     field,
+    survey,
     today,
     insideTemple,
     spawnPoint,
@@ -34,7 +35,7 @@ export default function GameShell({ game }: { game: AdventureController }) {
     travelRequest,
     flightRequest,
     flight,
-    setPosition,
+    reportPosition,
     reportFlight,
     setNearWild,
     setNearTemple,
@@ -126,7 +127,7 @@ export default function GameShell({ game }: { game: AdventureController }) {
             onExplore={() => {}}
             travelTarget={travelTarget}
             travelRequest={travelRequest}
-            onPosition={setPosition}
+            onPosition={reportPosition}
             paused={isModal}
             flightRequest={flightRequest}
             onSound={playSound}
@@ -142,7 +143,7 @@ export default function GameShell({ game }: { game: AdventureController }) {
             <PawPrint size={19} />
             <span>伙伴</span>
           </button>
-          <button aria-label="室内打开旅行地图" onClick={() => setPanel('map')}>
+          <button aria-label="室内打开世界地图" onClick={() => setPanel('map')}>
             <Map size={19} />
             <span>地图</span>
           </button>
@@ -183,7 +184,7 @@ export default function GameShell({ game }: { game: AdventureController }) {
         <button aria-label="我的伙伴" onClick={() => setPanel('journal')}>
           <PawPrint size={18} />
         </button>
-        <button aria-label="旅行地图" onClick={() => setPanel('map')}>
+        <button aria-label="世界地图" onClick={() => setPanel('map')}>
           <Map size={18} />
         </button>
       </div>
@@ -227,6 +228,8 @@ export default function GameShell({ game }: { game: AdventureController }) {
             templeProgress={templeProgress}
             discovery={discovery}
             field={field}
+            survey={survey}
+            position={game.telemetry.position.getSnapshot()}
             today={today}
             flight={flight}
             closeModal={closeModal}

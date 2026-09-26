@@ -6,11 +6,10 @@ import {
 } from '../src/components/fieldActivityRuntime';
 import {
   createFieldProgress,
-  RACE_GATES,
-  RACE_START,
   recordWildlife,
   type FieldSpecies,
 } from '../src/game/fieldActivities';
+import { RACE_GATES, RACE_START } from '../src/game/fieldActivityRules';
 import { SPAWN_POSITION, type WorldPoint } from '../src/game/worldLayout';
 import type { WildlifeObservation } from '../src/rendering/scenery/types';
 import type { SoundCue } from '../src/audio/types';

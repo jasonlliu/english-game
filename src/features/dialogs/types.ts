@@ -15,6 +15,8 @@ import type { RegionPlace } from '../../game/landmarks';
 import { getPetStage, type Mode, type Progress } from '../../game/progress';
 import { TEMPLE_THEMES, type TempleProgress } from '../../game/temple';
 import type { WorldZone } from '../../game/world';
+import type { WorldSurvey } from '../../game/worldSurvey';
+import type { WorldPosition } from '../../app/worldTelemetry';
 
 /** Dialogs are presenters; only application commands may change a saved game. */
 export interface DialogProps {
@@ -27,6 +29,8 @@ export interface DialogProps {
   templeProgress: TempleProgress;
   discovery: DiscoveryProgress;
   field: FieldProgress;
+  survey: WorldSurvey;
+  position: WorldPosition;
   today: string;
   flight: FlightStatus;
   closeModal(): void;

@@ -2,15 +2,13 @@ import {
   createRaceRun,
   stepRaceRun,
   RACE_START,
-  RACE_DURATION,
   RACE_GATES,
   RACE_GATE_RADIUS,
   createObservationRun,
   stepObservation,
   type RaceRun,
-  type FieldProgress,
-  type FieldSpecies,
-} from '../game/fieldActivities';
+} from '../game/fieldActivityRules';
+import { RACE_DURATION, type FieldProgress, type FieldSpecies } from '../game/fieldActivities';
 import type { WorldPoint } from '../game/worldLayout';
 import type { WildlifeObservation } from '../rendering/scenery/types';
 import type { SoundCue } from '../audio/types';

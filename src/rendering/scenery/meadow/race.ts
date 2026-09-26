@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { RACE_GATES, RACE_START } from '../../../game/fieldActivities';
+import { RACE_GATES, RACE_START } from '../../../game/fieldActivityRules';
 import { getTerrainHeight } from '../../../game/world';
 import type { SceneryFrame } from '../types';
 

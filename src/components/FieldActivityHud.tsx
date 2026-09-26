@@ -1,5 +1,6 @@
 import type { FieldProgress } from '../game/fieldActivities';
-import { RACE_DURATION, RACE_GATES, getRaceRating } from '../game/fieldActivities';
+import { RACE_DURATION, getRaceRating } from '../game/fieldActivities';
+import { RACE_GATES } from '../game/fieldActivityRules';
 import { FIELD_GUIDE } from '../game/fieldGuide';
 import type { FieldActivityView } from './fieldActivityRuntime';
 import '../styles/fieldActivities.css';

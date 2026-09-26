@@ -141,7 +141,7 @@ test('storage.clear events reload all saves and record only the new arrival', ()
   assert.equal(storage.writes.length, writes + 1);
 });
 
-test('quota failures retain all six saves independently across mode switches and recover', () => {
+test('quota failures retain all seven saves independently across mode switches and recover', () => {
   const storage = new MemoryStorage();
   const session = createGameSession({ storage, today: date });
   storage.failWrites = true;
@@ -151,6 +151,7 @@ test('quota failures retain all six saves independently across mode switches and
   session.claimTemple('meadow');
   session.investigateDiscovery('letter', DISCOVERY_SITES.letter.position, 'meadow');
   session.recordWildlife('deer', 'meadow');
+  session.recordSurvey({ x: 11, z: 23 }, 'meadow', 'real');
   const real = session.getSnapshot();
   assert.equal(real.storageWarning, true);
   session.switchMode('demo');
@@ -158,6 +159,7 @@ test('quota failures retain all six saves independently across mode switches and
   session.collect(1);
   session.investigateDiscovery('letter', DISCOVERY_SITES.letter.position, 'meadow');
   session.recordMeadowRace(20, 'meadow');
+  session.recordSurvey({ x: -79, z: 40 }, 'meadow', 'demo');
   session.simulateTomorrow();
   session.enterRegion('water');
   session.claimTemple('water');
@@ -172,8 +174,8 @@ test('quota failures retain all six saves independently across mode switches and
   const writesBefore = storage.writes.length;
   const recovered = session.refresh();
   assert.equal(recovered.storageWarning, false);
-  assert.equal(storage.writes.length, writesBefore + 12);
-  assert.equal(new Set(storage.writes.slice(writesBefore).map(({ key }) => key)).size, 12);
+  assert.equal(storage.writes.length, writesBefore + 14);
+  assert.equal(new Set(storage.writes.slice(writesBefore).map(({ key }) => key)).size, 14);
   assert.strictEqual(recovered.progress, demo.progress);
   const writesAfter = storage.writes.length;
   assert.strictEqual(session.refresh(), recovered);

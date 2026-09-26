@@ -1,0 +1,184 @@
+.region-survey-map {
+  width: 100%;
+  min-width: 0;
+  color: #647157;
+}
+.survey-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  user-select: none;
+}
+.survey-paper {
+  fill: #f0ebd9;
+  stroke: #b6b395;
+  stroke-width: 1;
+}
+.survey-land {
+  fill: var(--survey-land);
+}
+.survey-contours {
+  fill: none;
+  stroke: var(--survey-ink);
+  stroke-width: 1.3;
+  opacity: 0.2;
+}
+.survey-lake-bank {
+  fill: #b2c9a7;
+}
+.survey-lake {
+  fill: #95c4c2;
+  stroke: #669ea5;
+  stroke-width: 1;
+}
+.survey-water-ripples {
+  stroke: #e6f3dd;
+  stroke-linecap: round;
+  stroke-width: 1.2;
+  fill: none;
+}
+.survey-trail {
+  fill: none;
+  stroke: #f7edce;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.survey-building {
+  fill: #ab9b7b;
+  stroke: #7e8066;
+  stroke-width: 0.75;
+  opacity: 0.64;
+}
+.survey-fog {
+  fill: #e2dfcf;
+  opacity: 0.9;
+}
+.survey-compass {
+  fill: var(--survey-ink);
+  opacity: 0.8;
+}
+.survey-compass text,
+.survey-scale text {
+  font-size: 10px;
+  text-anchor: middle;
+  letter-spacing: 1px;
+}
+.survey-place {
+  cursor: pointer;
+  outline: none;
+}
+.survey-place-hit {
+  fill: transparent;
+}
+.survey-place-ring {
+  fill: #fcf1cb55;
+  stroke: transparent;
+  stroke-width: 2;
+}
+.survey-place-disc {
+  fill: #ede8d5;
+  stroke: #a4a18b;
+  stroke-width: 1.2;
+  stroke-dasharray: 3 2;
+}
+.survey-place.is-known .survey-place-disc {
+  fill: #f5f2de;
+  stroke: var(--survey-ink);
+  stroke-dasharray: none;
+}
+.survey-place-glyph {
+  fill: none;
+  stroke: var(--survey-ink);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.survey-place-question {
+  fill: #777b67;
+  font:
+    17px Georgia,
+    serif;
+  text-anchor: middle;
+}
+.survey-place.is-selected .survey-place-ring,
+.survey-place:hover .survey-place-ring {
+  stroke: #b29454;
+  fill: #f6e4a688;
+}
+.survey-place:focus-visible .survey-place-ring {
+  stroke: #326c88;
+  stroke-width: 3;
+  fill: #d9eaf3;
+}
+.survey-place-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: middle;
+  fill: #4c604f;
+  paint-order: stroke;
+  stroke: #f0eddc;
+  stroke-width: 4;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.survey-player {
+  pointer-events: none;
+}
+.survey-player-halo {
+  fill: #448ba72a;
+  stroke: #438ba655;
+  stroke-width: 1;
+}
+.survey-player-cone {
+  fill: #448ba732;
+}
+.survey-player-arrow {
+  fill: #3b839b;
+  stroke: #fbf8e7;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+.survey-scale {
+  fill: #838875;
+  stroke: #838875;
+  stroke-width: 1;
+}
+.survey-scale text {
+  stroke: none;
+  font-size: 9px;
+}
+.survey-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin: 2px 0 10px;
+  font-size: 10px;
+  color: #75816e;
+}
+.survey-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.survey-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+.survey-legend-known {
+  background: var(--survey-land);
+  border: 1px solid var(--survey-ink);
+}
+.survey-legend-fog {
+  background: repeating-linear-gradient(135deg, #e2dfcf, #e2dfcf 3px, #c3c3ae 3px, #c3c3ae 4px);
+  border: 1px solid #b6b59e;
+}
+.survey-legend-player {
+  background: #3b839b;
+  clip-path: polygon(50% 0, 100% 100%, 50% 78%, 0 100%);
+}

@@ -6,7 +6,7 @@
 
 ## 状态边界
 
-`getSnapshot()` 返回稳定快照：`mode`、`progress`、`expedition`、`adventure`、`templeProgress`、`discovery`、`field`、`today`、`storageWarning`。
+`getSnapshot()` 返回稳定快照：`mode`、`progress`、`expedition`、`adventure`、`templeProgress`、`discovery`、`field`、`survey`、`today`、`storageWarning`。
 未改变的数据保留对象引用；一次命令在全部变化完成后通知订阅者一次。调用方应把快照视为只读数据，不直接修改数组或嵌套字段。
 
 | 领域                 | 内容                                   | localStorage key（`{mode}` 为 `real` / `demo`） |
@@ -17,13 +17,14 @@
 | `temple.ts`          | 六地神庙遗物                           | `rune-island.temple.{mode}.v1`                  |
 | `discovery.ts`       | 原野线索、风铃谜题、永久收藏、每日邮票 | `rune-island.discovery.{mode}.v1`               |
 | `fieldActivities.ts` | 五种动物观察、竞速最好成绩             | `rune-island.field.{mode}.v1`                   |
+| `worldSurvey.ts`     | 各地区已发现地标、已揭示地图格         | `rune-island.survey.{mode}.v1`                  |
 
-当前记录均为 `version: 1`。旧 `load*` / `save*` 函数保持兼容；交互界面统一通过 session，不再组合六组 loader、writer 或临时存档 ref。
+当前记录均为 `version: 1`，真实与演示各有七份独立领域存档。旧 `load*` / `save*` 函数保持兼容；交互界面统一通过 session，不再组合多组 loader、writer 或临时存档 ref。
 角色位置、飞行遥测、镜头、弹窗、路线和提示不属于持久游戏快照。
 
 ## 命令与同步
 
-`checkin`、`collect`、`openTreasure`、`newExpedition`、`resetDemo`、`simulateTomorrow`、`enterRegion`、`capturePet`、`choosePet`、`claimTemple`、`investigateDiscovery`、`recordWildlife`、`recordMeadowRace` 委托已有纯规则。
+`checkin`、`collect`、`openTreasure`、`newExpedition`、`resetDemo`、`simulateTomorrow`、`enterRegion`、`capturePet`、`choosePet`、`claimTemple`、`investigateDiscovery`、`recordWildlife`、`recordMeadowRace`、`recordSurvey` 委托已有纯规则。
 `collect(id, expectedRegion?)` 根据当前地区选择原野光晶或地区符印。场景应传入事件所属地区；若外部存档已切区，旧场景事件会被拒绝。奖励提示应检查命令返回的成功标志与地区，而不是依赖点击前的界面状态。
 `claimTemple(region)` 只允许当前已解锁地区；光印机关是否完成由神庙界面负责验证。
 
@@ -31,7 +32,9 @@
 
 `recordWildlife(species, expectedRegion)` 和 `recordMeadowRace(seconds, expectedRegion)` 只接受原野事件，过滤未知物种与非法成绩。运行中的竞速、观察驻留在场景本地推进，不写每帧存档；完成事件通过 Controller 核验模式、地区、暂停与飞行状态后提交。观察徽章与最好成绩不影响打卡 XP，也不随 `newExpedition` 清除。
 
-每次命令先读取最新干净存档，再执行规则；同步连续操作不必等待下一次 React 渲染或 `storage` 事件。
+`recordSurvey(position, expectedRegion, expectedMode)` 记录实际位置附近的探索足迹，提交时核对刷新后的模式、当前地区与解锁状态。有限且在地区边界内的坐标才能记录；步行和飞行均可探索，神庙内部坐标不提交室外地图。`surveyPosition` 只揭示当前格及周围一圈（12×12 地区网格），不在相隔的采样点之间插值，避免传送误记路线。距离 10 米以内的 `REGION_PLACES` 地标记录为已发现。`getRegionSurvey` / `getWorldSurvey` 的百分比仅按地标计数，当前全世界分母为 27，包含尚未解锁地区；迷雾格数量不参与百分比。
+
+命令先读取最新干净存档，再执行规则；同步连续操作不必等待下一次 React 渲染或 `storage` 事件。`recordSurvey` 对已探索位置有提前返回：没有新地标或地图格、且没有存储警告时，不读取、序列化或写入存档，也不通知订阅者。确有新发现的尝试仍先刷新，避免覆盖其它标签页的记录；存储警告期间绕过此优化，保证失败写入可以重试。
 `refresh` / `load` 不改变等价数据，不反复保存同日到访；日期采用本地日历日。
 初始化会加载存档并记录今日首次到访。重复创建 session 或 StrictMode 重复 effect 不会多记一天或重复授奖；不要在 selector、`getSnapshot` 或普通渲染分支中反复创建 session。
 
@@ -48,6 +51,8 @@ Session 按模式、领域保存未写入成功的内存值。脏值不会被较
 Adventure 迁移必须在**验证地区解锁与过滤伙伴之前**合并 `progress.completedDates`。
 不能先用缺失到访日的旧记录清理伙伴，再补日期：那会永久丢掉原本应保留的地区、伙伴和符印。
 迁移形成的变化单独标为待保存，即使今日已经包含在旧打卡日期中，也会持久化一次。
+
+旧版没有 `survey` 时创建空地图记录，保留其它六个领域，不从到访解锁、寻宝或任务完成记录推断已经走过的地点。新版足迹从实际位置采样开始。`newExpedition` 保留长期地标与足迹；`resetDemo` 只清空演示地图，真实记录不变。地图 sanitizer 按注册地标顺序与地图格数字顺序规范化数据，过滤未知 ID、重复项、越界格和模式不符的数据，保持后续刷新引用稳定。
 
 ## 扩展与验证
 

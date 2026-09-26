@@ -23,7 +23,7 @@ function channel<T>(initial: T, equal: (a: T, b: T) => boolean) {
     },
   };
 }
-/** High-frequency renderer telemetry never mutates the persistent game session. */
+/** Transient snapshots; the controller separately records newly explored places and map cells. */
 export function createWorldTelemetry() {
   return {
     position: channel<WorldPosition>(

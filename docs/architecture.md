@@ -34,12 +34,12 @@ src/
 
 依赖方向为 `界面 → 应用命令 → 游戏规则`，以及 `场景编排 → 渲染工厂 + 游戏导航规则`。`game/` 不依赖 React、Three.js 或界面；类型引用使用 `import type`，避免类型关系引入运行时代码。新增数据继续放入对应领域，不建立包含所有功能的总入口。
 
-`session` 是持久状态的入口，领域转换仍是可独立测试的纯函数。HUD/弹窗只发送命令、显示成功或拒绝结果。位置和高度通过独立订阅更新小地图/飞行栏，移动不触发整棵界面和存档层重新渲染。具体存档契约见 [游戏状态与存档](architecture-state.md)。
+`session` 是七个持久领域的入口，领域转换仍是可独立测试的纯函数。HUD/弹窗只发送命令、显示成功或拒绝结果。位置和高度通过独立订阅更新小地图/飞行栏，普通移动不触发整棵界面和存档层重新渲染；仅新增地图格或地标时更新探索记录。具体存档契约见 [游戏状态与存档](architecture-state.md)。
 
 ## 添加地区
 
 1. 在 `game/adventure.ts` 的 `RegionId`、`REGION_IDS`、`REGIONS` 添加地区定义和解锁信息；配套补齐属性图标、任务文案与伙伴定义。编译器会指出未覆盖的 `Record<RegionId, ...>`。
-2. 在 `game/landmarks.ts` 添加景点、碰撞体和可达目标；在 `game/world.ts`、`rendering/world/themes.ts` 配套定义地形/植被/配色。物理范围必须与实际建筑一致，飞越净空也使用这份数据。
+2. 在 `game/landmarks.ts` 添加景点、碰撞体和可达目标；在 `game/world.ts`、`rendering/world/themes.ts` 配套定义地形/植被/配色。物理范围必须与实际建筑一致，飞越净空也使用这份数据。地图发现使用 `REGION_PLACES` 的稳定 ID 与实际可达坐标，增加地标会增加探索总数；已发布 ID 不随意改名，以免旧发现记录失效。
 3. 创建 `rendering/scenery/regions/<id>.ts`，导出 `createRegionScenery()`。工厂每次返回新的 `group`、`update`、`dispose`，不能复用上一场景已释放的 GPU 对象。
 4. 在 `rendering/scenery/registry.ts` 注册字面量 `() => import('./regions/<id>')`。地区文件通过共享 kit 复用几何构造，不静态导入其它地区工厂。
 5. 如有神庙，补齐 `game/temple.ts` 主题/谜题数据、外部入口和室内环境映射；若室内内容很大，继续拆出独立工厂按地区加载。
@@ -97,8 +97,16 @@ npm run check
 
 ## 原野活动与自然观察
 
-`game/fieldActivities.ts` 定义竞速和观察的纯状态机，以及第六个持久领域 `field`。`components/fieldActivityRuntime.ts` 负责同一场景内的临时活动编排、候选动物、一次性完成通知和低频 UI 快照；WorldScene 注入位置、速度、暂停/飞行状态和动物只读观察视图，不直接写存档。`FieldActivityHud` 同时提供键盘和触屏入口，`FieldNotebook` 在懒加载的探险手记中展示纪录。
+`game/fieldActivities.ts` 定义第六个持久领域 `field` 的观察记录、最好成绩与校验；`game/fieldActivityRules.ts` 保存场景内竞速和观察的纯状态机，随场景加载，避免存档依赖带入实时活动逻辑。`components/fieldActivityRuntime.ts` 负责同一场景内的临时活动编排、候选动物、一次性完成通知和低频 UI 快照；WorldScene 注入位置、速度、暂停/飞行状态和动物只读观察视图，不直接写存档。`FieldActivityHud` 同时提供键盘和触屏入口，`FieldNotebook` 在懒加载的探险手记中展示纪录。
 
 `RegionScenery.wildlife?()` 是可选的只读动物接口；地区可以独立提供物种、位置和惊逃状态。观察中 `SceneryFrame.observingId` 驱动目标标记；`SceneryFrame.race` 驱动原野工厂的竞速圆环。圈数、倒计时和观察记录由规则决定，渲染只提供反馈。
 
 场景卸载会结束临时活动，持久纪录仅通过 session 更新。新增活动时补起点/路线可达、暂停/离场、中断与重试、重复奖励以及真实/演示存档隔离回归。不能让地区内部模型直接调用 UI 或保存奖励。
+
+## 世界地图与探索记录
+
+`game/worldSurvey.ts` 定义第七个持久领域 `survey`，按地区存储已发现地标 ID 与 12×12 网格足迹。Controller 从实际室外位置遥测调用 `session.recordSurvey`，核对模式、地区与场景状态；飞行也能记录探索，室内不写室外足迹。领域只取当前点，不把相邻回调视为连续走过的路线，因此场景切换与传送不会自动补画中间路径。
+
+`TravelAtlas` 通过原有地图弹窗入口按需加载，M 快捷键可打开。`WorldAtlasChart` 展示六地区总览与解锁情况；`RegionSurveyMap` 使用共享坐标、地区边界和 SVG 展示路线、迷雾、地标、当前位置与朝向。地图显示不加载其它地区的 Three.js 场景。选择地标沿用 Controller 的导航命令；查看地图或选择目标不会直接增加探索进度。
+
+世界及地区百分比都按已发现地标数量计算，六区现有 27 处地标；世界分母包含锁定地区。解锁表示可进入，迷雾表示附近地图格曾经到达，地标发现表示到达其 10 米范围，三者分别呈现。旧存档其它进度保留，地图记录从更新后实际探索开始，不推断历史足迹。

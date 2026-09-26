@@ -4,23 +4,25 @@ import {
   FIELD_SPECIES,
   GOLD_RACE_TIME,
   MIN_RACE_SECONDS,
-  OBSERVATION_DURATION,
   RACE_DURATION,
-  RACE_GATES,
-  RACE_START,
   SILVER_RACE_TIME,
   createFieldProgress,
-  createObservationRun,
-  createRaceRun,
   getRaceRating,
   recordMeadowRace,
   recordWildlife,
   sanitizeFieldProgress,
+} from '../src/game/fieldActivities';
+import {
+  OBSERVATION_DURATION,
+  RACE_GATES,
+  RACE_START,
+  createObservationRun,
+  createRaceRun,
   stepObservation,
   stepRaceRun,
   type ObservationFrame,
   type RaceRun,
-} from '../src/game/fieldActivities';
+} from '../src/game/fieldActivityRules';
 import { getNavigationPath, isWalkable } from '../src/game/world';
 import { SPAWN_POSITION, type WorldPoint } from '../src/game/worldLayout';
 

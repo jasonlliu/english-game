@@ -6,7 +6,7 @@ const labels: Record<Exclude<Panel, null>, string> = {
   checkin: '确认今日打卡',
   journal: '我的伙伴',
   expedition: '原野探险手记',
-  map: '旅行地图',
+  map: '世界探索地图',
   capture: '建立羁绊',
   treasure: '发现宝藏',
   relic: '发现神庙遗物',

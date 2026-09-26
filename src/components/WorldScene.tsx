@@ -21,7 +21,8 @@ import {
   EMPTY_FIELD_VIEW,
   type FieldActivityView,
 } from './fieldActivityRuntime';
-import { RACE_GATES, type FieldProgress } from '../game/fieldActivities';
+import type { FieldProgress } from '../game/fieldActivities';
+import { RACE_GATES } from '../game/fieldActivityRules';
 import { getAvailableDiscoverySites, type DiscoveryProgress } from '../game/discovery';
 import { getDiscoveryProximity, type DiscoveryProximity } from '../game/discoveryProximity';
 import { REGION_PLACES, REGION_VOLUMES, TEMPLE_ENTRANCE } from '../game/landmarks';

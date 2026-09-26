@@ -58,6 +58,14 @@ import {
   type WildlifeResult,
 } from './fieldActivities';
 import type { WorldPoint } from './world';
+import {
+  createWorldSurvey,
+  sanitizeWorldSurvey,
+  SURVEY_STORAGE_KEYS,
+  surveyPosition,
+  type SurveyResult,
+  type WorldSurvey,
+} from './worldSurvey';
 
 /** The session needs only these two methods; browser Storage and test stores both fit. */
 export interface GameStorage {
@@ -73,6 +81,7 @@ export interface GameSnapshot {
   readonly templeProgress: TempleProgress;
   readonly discovery: DiscoveryProgress;
   readonly field: FieldProgress;
+  readonly survey: WorldSurvey;
   readonly today: string;
   readonly storageWarning: boolean;
 }
@@ -108,6 +117,7 @@ export interface GameSession {
   investigateDiscovery(id: string, position: WorldPoint, expectedRegion: RegionId): DiscoveryResult;
   recordWildlife(species: string, expectedRegion: RegionId): WildlifeResult;
   recordMeadowRace(seconds: number, expectedRegion: RegionId): FieldResult;
+  recordSurvey(position: WorldPoint, expectedRegion: RegionId, expectedMode: Mode): SurveyResult;
 }
 
 const keysByStore = {
@@ -117,6 +127,7 @@ const keysByStore = {
   templeProgress: TEMPLE_STORAGE_KEYS,
   discovery: DISCOVERY_STORAGE_KEYS,
   field: FIELD_STORAGE_KEYS,
+  survey: SURVEY_STORAGE_KEYS,
 } as const;
 type StoreName = keyof typeof keysByStore;
 const storeNames = Object.keys(keysByStore) as StoreName[];
@@ -139,6 +150,7 @@ interface Bundle {
   templeProgress: Entry<TempleProgress>;
   discovery: Entry<DiscoveryProgress>;
   field: Entry<FieldProgress>;
+  survey: Entry<WorldSurvey>;
 }
 const entry = <T>(value: T): Entry<T> => ({
   value,
@@ -174,6 +186,7 @@ export function createGameSession(options: GameSessionOptions = {}): GameSession
         templeProgress: entry(createTempleProgress(targetMode)),
         discovery: entry(createDiscoveryProgress(targetMode)),
         field: entry(createFieldProgress(targetMode)),
+        survey: entry(createWorldSurvey(targetMode)),
       };
       bundles.set(targetMode, bundle);
     }
@@ -200,6 +213,7 @@ export function createGameSession(options: GameSessionOptions = {}): GameSession
       templeProgress: bundle.templeProgress.value,
       discovery: bundle.discovery.value,
       field: bundle.field.value,
+      survey: bundle.survey.value,
       today,
       storageWarning,
     };
@@ -276,6 +290,7 @@ export function createGameSession(options: GameSessionOptions = {}): GameSession
       sanitizeDiscoveryProgress(value, mode),
     );
     read(bundle.field, FIELD_STORAGE_KEYS[mode], (value) => sanitizeFieldProgress(value, mode));
+    read(bundle.survey, SURVEY_STORAGE_KEYS[mode], (value) => sanitizeWorldSurvey(value, mode));
     // Migration and today's arrival are real changes; another same-day refresh is a no-op.
     replace(
       bundle.adventure,
@@ -387,6 +402,7 @@ export function createGameSession(options: GameSessionOptions = {}): GameSession
         replace(bundle.templeProgress, createTempleProgress('demo'), true);
         replace(bundle.discovery, createDiscoveryProgress('demo'), true);
         replace(bundle.field, createFieldProgress('demo'), true);
+        replace(bundle.survey, createWorldSurvey('demo'), true);
         replace(
           bundle.adventure,
           visitAdventure(createAdventure('demo', progress), progress, today),
@@ -473,6 +489,23 @@ export function createGameSession(options: GameSessionOptions = {}): GameSession
         const result = recordMeadowRace(bundle.field.value, seconds, region);
         replace(bundle.field, result.state, true);
         return { ...result, state: bundle.field.value };
+      });
+    },
+    recordSurvey(position, expectedRegion, expectedMode) {
+      // Telemetry repeats while idle: skip storage reads/serialization for charted ground.
+      // A warning bypasses this fast path so pending saves still get a chance to recover.
+      const preview = surveyPosition(bundleFor(mode).survey.value, expectedRegion, position);
+      if (!preview.changed && !storageWarning) return preview;
+      return transact((bundle) => {
+        if (
+          mode !== expectedMode ||
+          bundle.adventure.value.currentRegion !== expectedRegion ||
+          !getUnlockedRegions(bundle.adventure.value).includes(expectedRegion)
+        )
+          return { state: bundle.survey.value, changed: false, newPlaces: [] };
+        const result = surveyPosition(bundle.survey.value, expectedRegion, position);
+        if (result.changed) replace(bundle.survey, result.state, true);
+        return { ...result, state: bundle.survey.value };
       });
     },
   };

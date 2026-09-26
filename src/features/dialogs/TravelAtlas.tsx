@@ -1,165 +1,275 @@
 import {
   ArrowRight,
-  CalendarCheck,
+  Check,
   Compass,
-  Droplets,
   Gem,
   LockKeyhole,
-  Mountain,
+  MapPin,
+  Navigation,
   Sun,
 } from 'lucide-react';
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { elementIcons, waypointNames, zoneKeys } from '../../app/presentation';
-import CompanionPortrait from '../../components/CompanionPortrait';
-import { PETS, REGION_IDS, REGIONS } from '../../game/adventure';
+import { REGION_IDS, REGIONS, type RegionId } from '../../game/adventure';
 import { REGION_PLACES } from '../../game/landmarks';
+import { getRegionSurvey, getWorldSurvey } from '../../game/worldSurvey';
 import { preloadRegionScene } from '../../loading/SceneHost';
+import RegionSurveyMap from './RegionSurveyMap';
+import WorldAtlasChart from './WorldAtlasChart';
 import { getDialogModel, type DialogProps } from './types';
 
 export default function TravelAtlas(props: DialogProps) {
   const {
     mode,
-    adventure,
     regionId,
-    region,
-    shownStage,
+    survey,
+    position,
     unlocked,
     seals,
-    templeVisited,
     enterRegion,
     simulateTomorrow,
     travelTo,
     travelToPlace,
+    closeModal,
     setPanel,
   } = getDialogModel(props);
+  const [selected, setSelected] = useState<RegionId>(regionId);
+  const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
+  const world = getWorldSurvey(survey),
+    local = getRegionSurvey(selected, survey);
+  const region = REGIONS[selected],
+    available = unlocked.includes(selected),
+    current = regionId === selected;
+  const found = survey.regions[selected].places;
+  const places = REGION_PLACES[selected];
+  const place =
+    places.find((item) => item.id === selectedPlace) ??
+    places.find((item) => !found.includes(item.id)) ??
+    places[0];
+  const discovered = found.includes(place.id);
+  const selectRegion = (id: RegionId) => {
+    setSelected(id);
+    setSelectedPlace(null);
+  };
+
   return (
-    <div className="travel-atlas">
-      <div className="eyebrow">SIX WORLDS, SIX NEW STORIES</div>
-      <h2>下一站，会遇见谁？</h2>
-      <p>每天首次进入，解锁下一片风景。不用连续登录，已解锁的场景一直保留。</p>
-      <div className="travel-progress">
-        <CalendarCheck size={17} />
+    <div className="world-atlas">
+      <header className="atlas-heading">
+        <div>
+          <div className="eyebrow">THE WORLD, ONE FOOTSTEP AT A TIME</div>
+          <h2>把足迹，留在世界里。</h2>
+          <p>每一处新发现，都会成为旅程的一部分。</p>
+        </div>
+        <div
+          className="atlas-total"
+          aria-label={`世界探索度 ${world.percent}%，已到访 ${world.found} / ${world.total} 个地标`}
+        >
+          <svg viewBox="0 0 92 92" aria-hidden="true">
+            <circle cx="46" cy="46" r="40" fill="none" stroke="#d9dfce" strokeWidth="5" />
+            <circle
+              cx="46"
+              cy="46"
+              r="40"
+              fill="none"
+              stroke="#547862"
+              strokeWidth="5"
+              strokeDasharray={`${world.percent * 2.513} 252`}
+              transform="rotate(-90 46 46)"
+              strokeLinecap="round"
+            />
+          </svg>
+          <span>
+            <b>
+              {world.percent}
+              <small>%</small>
+            </b>
+            <em>世界探索度</em>
+          </span>
+        </div>
+      </header>
+      <div className="atlas-summary">
         <span>
-          已开启 <b>{unlocked.length}</b> / {REGION_IDS.length} 个场景
+          <MapPin size={15} />
+          已到访{' '}
+          <b>
+            {world.found} / {world.total}
+          </b>{' '}
+          个地标
         </span>
-        <small>
-          {unlocked.length === REGION_IDS.length ? '完整旅图已点亮' : '明天再来，发现下一站'}
-        </small>
+        <span>
+          <Compass size={15} />
+          已解锁{' '}
+          <b>
+            {unlocked.length} / {REGION_IDS.length}
+          </b>{' '}
+          片区域
+        </span>
+        <span className="atlas-shortcut">
+          <kbd>M</kbd> 地图
+        </span>
       </div>
-      <div className="region-grid">
+      <WorldAtlasChart
+        survey={survey}
+        unlocked={unlocked}
+        current={regionId}
+        selected={selected}
+        onSelect={selectRegion}
+      />
+      <p className="atlas-progress-note">
+        探索度按已到访地标计算。解锁后仍需亲自探索，走过的范围会逐步点亮。
+      </p>
+      <nav className="atlas-region-tabs" aria-label="选择地图区域">
         {REGION_IDS.map((id) => {
           const item = REGIONS[id],
-            pet = PETS[item.petId],
-            Icon = elementIcons[id],
-            available = unlocked.includes(id),
-            current = regionId === id,
-            caught = adventure.capturedPets.includes(pet.id);
+            Icon = elementIcons[id];
           return (
             <button
               key={id}
-              className={`region-card region-${id} ${available ? 'available' : 'locked'} ${current ? 'current' : ''}`}
-              disabled={!available}
-              onPointerEnter={() => {
-                if (available) preloadRegionScene(id);
-              }}
-              onFocus={() => {
-                if (available) preloadRegionScene(id);
-              }}
-              onClick={() => enterRegion(id)}
-              style={{ '--scene-accent': item.color } as CSSProperties}
+              aria-pressed={id === selected}
+              aria-label={`${item.name}${unlocked.includes(id) ? '' : '，未解锁'}${id === regionId ? '，你在这里' : ''}`}
+              onClick={() => selectRegion(id)}
+              style={{ '--atlas-region': item.color } as CSSProperties}
             >
-              <div className="region-card-scene">
-                <span className="scene-moon" />
-                <span className="scene-hill one" />
-                <span className="scene-hill two" />
-                <Icon size={35} strokeWidth={1.2} />
-                <CompanionPortrait petId={pet.id} stage={pet.id === 'ember' ? shownStage : 1} />
-                <span className="region-day">DAY {String(item.day).padStart(2, '0')}</span>
-                {!available && (
-                  <span className="scene-lock">
-                    <LockKeyhole size={19} />
-                  </span>
-                )}
-              </div>
-              <div className="region-card-text">
-                <span className="element-badge">{item.element}属性</span>
-                <h3>{item.name}</h3>
-                <p>{available ? `当地伙伴 · ${pet.name}` : `第 ${item.day} 个到访日开启`}</p>
-                <span className="region-status">
-                  {!available
-                    ? '等待下一次到访'
-                    : current
-                      ? '正在探索'
-                      : caught
-                        ? '重访 · 伙伴已结识'
-                        : '进入探索'}
-                  {available ? <ArrowRight size={14} /> : <LockKeyhole size={12} />}
-                </span>
-              </div>
+              <Icon size={15} />
+              <span>{item.name}</span>
+              {!unlocked.includes(id) && <LockKeyhole size={11} />}
             </button>
           );
         })}
-      </div>
-      {mode === 'demo' && (
-        <button
-          className="primary demo-next-day"
-          disabled={unlocked.length === REGION_IDS.length}
-          onClick={simulateTomorrow}
-        >
-          <Sun size={17} />
-          {unlocked.length === REGION_IDS.length ? '全部场景已解锁' : '模拟明天 · 解锁下一片场景'}
+      </nav>
+      <section className="atlas-region-detail" aria-label={`${region.name}探索详情`}>
+        <div className="atlas-region-heading">
+          <div>
+            <small>
+              {region.element}之境{current ? ' · 你在这里' : ''}
+            </small>
+            <h3>{region.name}</h3>
+          </div>
+          <div className="atlas-region-percent">
+            <b>{local.percent}%</b>
+            <span>
+              {local.found} / {local.total} 地标
+            </span>
+          </div>
+        </div>
+        <progress
+          className="atlas-region-bar"
+          value={local.found}
+          max={local.total}
+          aria-label={`${region.name}地标探索进度`}
+        />
+        {available ? (
+          <>
+            <div className="atlas-detail-grid">
+              <RegionSurveyMap
+                regionId={selected}
+                survey={survey}
+                position={current ? position : undefined}
+                selectedPlace={place.id}
+                onSelectPlace={setSelectedPlace}
+              />
+              <aside className="atlas-place-card">
+                <span className={`atlas-place-state ${discovered ? 'is-found' : ''}`}>
+                  {discovered ? <Check size={14} /> : <Compass size={14} />}
+                  {discovered ? '足迹已记录' : '下一处新发现'}
+                </span>
+                <h4>{place.name}</h4>
+                <p>{place.description}</p>
+                {place.kind === 'temple' && (
+                  <small className="atlas-temple-note">
+                    {props.templeProgress.completed.includes(selected)
+                      ? '神庙遗物已收藏'
+                      : '抵达入口后，还可以进入神庙探索。'}
+                  </small>
+                )}
+                <button
+                  className="primary"
+                  onClick={() => (current ? travelToPlace(place) : enterRegion(selected))}
+                  onPointerEnter={() => {
+                    if (!current) preloadRegionScene(selected);
+                  }}
+                  onFocus={() => {
+                    if (!current) preloadRegionScene(selected);
+                  }}
+                >
+                  <Navigation size={16} />
+                  {current ? '带我前往' : `前往${region.name}`}
+                  <ArrowRight size={15} />
+                </button>
+                <small>
+                  {current
+                    ? '沿路走近地标，就会自动记入地图。'
+                    : '抵达区域后，在地图里选择地标带路。'}
+                </small>
+              </aside>
+            </div>
+            <div className="atlas-place-list" aria-label="区域地标清单">
+              {places.map((item) => (
+                <button
+                  key={item.id}
+                  aria-pressed={place.id === item.id}
+                  onClick={() => setSelectedPlace(item.id)}
+                >
+                  <span>
+                    {found.includes(item.id) ? <Check size={14} /> : <MapPin size={14} />}
+                    {item.name}
+                  </span>
+                  <small>{found.includes(item.id) ? '已到访' : '待探索'}</small>
+                </button>
+              ))}
+            </div>
+            {current && (
+              <div className="atlas-secondary-actions">
+                <button onClick={closeModal}>
+                  继续自由探索 <ArrowRight size={14} />
+                </button>
+                {selected === 'meadow' && (
+                  <button onClick={() => setPanel('expedition')}>
+                    翻开原野探险手记 <ArrowRight size={14} />
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="atlas-locked-region">
+            <LockKeyhole size={28} />
+            <h4>风景还在远方等你</h4>
+            <p>{region.description}</p>
+            <span>第 {region.day} 个到访日开启，不需要连续登录。</span>
+            {mode === 'demo' && (
+              <button className="primary" onClick={simulateTomorrow}>
+                <Sun size={16} />
+                模拟明天 · 解锁下一片区域
+              </button>
+            )}
+          </div>
+        )}
+      </section>
+      {current && available && (
+        <details className="atlas-seal-routes">
+          <summary>
+            <Gem size={15} />
+            符印寻踪 <span>{seals.length} / 3</span>
+          </summary>
+          <div>
+            {zoneKeys.map((key, index) => (
+              <button key={key} onClick={() => travelTo(key)}>
+                {waypointNames[regionId][index]}
+                <small>
+                  {seals.includes(index) ? '符印已收集' : '带我前往'} <ArrowRight size={12} />
+                </small>
+              </button>
+            ))}
+          </div>
+        </details>
+      )}
+      {mode === 'demo' && unlocked.length < REGION_IDS.length && available && (
+        <button className="atlas-demo-next" onClick={simulateTomorrow}>
+          <Sun size={14} />
+          模拟明天 · 解锁下一片区域
         </button>
       )}
-      <div className="current-waypoints">
-        <h3>当前场景 · {region.name}</h3>
-        {regionId === 'meadow' && (
-          <p className="nature-route-note">
-            原野环游：鹿溪营地 → 晴风花海 → 风铃山丘。放慢脚步靠近动物，奔跑会惊动它们。
-            点击下方景点即可沿小路前往，途中也可以随时自由探索。
-            <button className="discovery-text-action" onClick={() => setPanel('expedition')}>
-              失落的风铃 · 翻开探险手记 <ArrowRight size={14} />
-            </button>
-          </p>
-        )}
-        <div className="map-destinations">
-          {zoneKeys.map((key, i) => (
-            <button key={key} onClick={() => travelTo(key)}>
-              <Gem size={18} />
-              <b>{waypointNames[regionId][i]}</b>
-              <small>
-                {seals.includes(i) ? '已探索' : '带我前往'}
-                <ArrowRight size={11} />
-              </small>
-            </button>
-          ))}
-        </div>
-        <h3 className="landmark-list-heading">建筑与自然奇观</h3>
-        <div className="landmark-list">
-          {REGION_PLACES[regionId].map((place) => (
-            <button key={place.id} onClick={() => travelToPlace(place)}>
-              <span>
-                {place.kind === 'temple' ? (
-                  <Compass size={21} />
-                ) : place.kind === 'waterfall' || place.kind === 'spring' ? (
-                  <Droplets size={21} />
-                ) : (
-                  <Mountain size={21} />
-                )}
-              </span>
-              <div>
-                <b>
-                  {place.name}
-                  {place.kind === 'temple' && (
-                    <em>{templeVisited ? '遗物已收藏' : '可进入探索'}</em>
-                  )}
-                </b>
-                <p>{place.description}</p>
-              </div>
-              <ArrowRight size={15} />
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

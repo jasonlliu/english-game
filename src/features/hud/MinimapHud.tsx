@@ -4,6 +4,7 @@ import type { AdventureController } from '../../app/useAdventureController';
 import WorldMap from '../../features/hud/WorldMap';
 import { REGION_PLACES } from '../../game/landmarks';
 import { WORLD_ZONES } from '../../game/worldLayout';
+import { getRegionSurvey } from '../../game/worldSurvey';
 
 import { waypointNames, zoneKeys } from '../../app/presentation';
 
@@ -24,7 +25,11 @@ export default function MinimapHud({ game }: { game: AdventureController }) {
     nearbyPlace?.name || (nearest >= 0 ? waypointNames[regionId][nearest] : region.name);
   return (
     <div className="minimap-hud" inert={isModal}>
-      <button className="minimap-button" aria-label="打开旅行地图" onClick={() => setPanel('map')}>
+      <button
+        className="minimap-button"
+        aria-label="打开世界探索地图"
+        onClick={() => setPanel('map')}
+      >
         <WorldMap regionId={regionId} seals={seals} position={position} />
         <span className="map-north">N</span>
         <span className="map-expand">
@@ -34,6 +39,9 @@ export default function MinimapHud({ game }: { game: AdventureController }) {
       <span className="map-location">
         <MapPin size={11} />
         {locationName}
+      </span>
+      <span className="minimap-survey">
+        地标探索 {getRegionSurvey(regionId, game.survey).percent}%
       </span>
     </div>
   );

@@ -10,7 +10,7 @@ import { TEMPLE_THEMES } from '../game/temple';
 import { SPAWN_POSITION, type WorldPoint, type WorldZone } from '../game/worldLayout';
 import { useGameAudio } from './useGameAudio';
 import { useGameSession } from './useGameSession';
-import { createWorldTelemetry } from './worldTelemetry';
+import { createWorldTelemetry, type WorldPosition } from './worldTelemetry';
 
 import { elementIcons, waypointNames, zoneKeys, type Panel } from './presentation';
 const uniqueId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -25,6 +25,7 @@ export function useAdventureController() {
     templeProgress,
     discovery,
     field,
+    survey,
     today,
     storageWarning,
   } = snapshot;
@@ -85,6 +86,8 @@ export function useAdventureController() {
   const isModal = panel !== null || reward !== null;
   const discoveryContext = useRef({ isModal, insideTemple });
   discoveryContext.current = { isModal, insideTemple };
+  const activeScene = useRef(sceneId);
+  activeScene.current = sceneId;
   const discoveryObjective = getDiscoveryObjective(discovery);
   const audio = useGameAudio({
     region: regionId,
@@ -106,6 +109,51 @@ export function useAdventureController() {
   };
 
   useEffect(() => () => clearTimeout(toastTimer.current), []);
+
+  useEffect(() => {
+    const openMap = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        event.code !== 'KeyM' ||
+        event.repeat ||
+        event.defaultPrevented ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        reward ||
+        (panel !== null && panel !== 'map') ||
+        (target instanceof Element &&
+          target.closest('input,textarea,select,[contenteditable="true"]'))
+      )
+        return;
+      event.preventDefault();
+      setPanel((current) => (current === 'map' ? null : 'map'));
+    };
+    window.addEventListener('keydown', openMap);
+    return () => window.removeEventListener('keydown', openMap);
+  }, [panel, reward]);
+
+  function reportPosition(position: WorldPosition) {
+    const current = session.getSnapshot();
+    if (
+      activeScene.current !== sceneId ||
+      current.mode !== mode ||
+      current.adventure.currentRegion !== regionId
+    )
+      return;
+    setPosition(position);
+    if (
+      discoveryContext.current.isModal ||
+      discoveryContext.current.insideTemple ||
+      document.hidden
+    )
+      return;
+    const result = session.recordSurvey(position, regionId, mode);
+    if (result.newPlaces.length) {
+      const place = REGION_PLACES[regionId].find((item) => item.id === result.newPlaces[0]);
+      if (place) notify(`发现新地标 · ${place.name}，已记入世界地图。`);
+    }
+  }
 
   function returnToCamp() {
     setInsideTemple(false);
@@ -423,6 +471,7 @@ export function useAdventureController() {
     templeProgress,
     discovery,
     field,
+    survey,
     discoveryObjective,
     today,
     insideTemple,
@@ -436,6 +485,7 @@ export function useAdventureController() {
     flightRequest,
     flight,
     telemetry,
+    reportPosition,
     setPosition,
     reportFlight,
     nearWild,

@@ -1,10 +1,10 @@
 import { CalendarCheck, Check, Compass, Map, PawPrint, Star, Sun } from 'lucide-react';
 import type { AdventureController } from '../../app/useAdventureController';
 import SoundControls from './SoundControls';
-import { REGION_IDS } from '../../game/adventure';
+import { getWorldSurvey } from '../../game/worldSurvey';
 
 export default function GameHeader({ game }: { game: AdventureController }) {
-  const { expedition, setPanel, unlocked, doneToday, isModal, notify, startCheckin } = game;
+  const { expedition, setPanel, survey, doneToday, isModal, notify, startCheckin } = game;
   return (
     <header className="hud-header" inert={isModal}>
       <a className="brand" href="#" aria-label="曙光旷野首页">
@@ -26,10 +26,7 @@ export default function GameHeader({ game }: { game: AdventureController }) {
         </button>
         <button onClick={() => setPanel('map')}>
           <Map size={15} />
-          旅行地图{' '}
-          <b>
-            {unlocked.length}/{REGION_IDS.length}
-          </b>
+          世界地图 <b>{getWorldSurvey(survey).percent}%</b>
         </button>
       </nav>
       <div className="header-actions">
