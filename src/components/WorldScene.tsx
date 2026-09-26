@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import type { SoundCue } from '../audio/types';
 import type { PetId, RegionId } from '../game/adventure';
 import {
   FLIGHT_CEILING,
@@ -53,6 +54,7 @@ export interface WorldSceneProps {
   canCapture?: boolean;
   flightRequest?: number;
   onFlightState?: (state: FlightStatus) => void;
+  onSound?: (cue: SoundCue) => void;
   onFlightMessage?: (message: string) => void;
   onNearTemple?: (near: boolean) => void;
   onEnterTemple?: () => void;
@@ -436,6 +438,7 @@ export default function WorldScene(props: WorldSceneProps) {
           pendingCompanion = false;
           installCompanion();
         }
+        propsRef.current.onSound?.('land');
         propsRef.current.onFlightMessage?.('已安全降落，继续一起探索吧');
         publishFlightState(true);
       };
@@ -481,6 +484,7 @@ export default function WorldScene(props: WorldSceneProps) {
           propsRef.current.onNearTemple?.(false);
         }
         canvas.focus({ preventScroll: true });
+        propsRef.current.onSound?.('takeoff');
         propsRef.current.onFlightMessage?.('一起飞上天空！空格上升，Shift 下降，F 安全降落');
         publishFlightState(true);
       };

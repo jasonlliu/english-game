@@ -1,14 +1,17 @@
 import { Check, Heart, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import type { SoundCue } from '../audio/types';
 import { PETS, isCaptureHit, type PetId } from '../game/adventure';
 import CompanionPortrait from './CompanionPortrait';
 
 export default function CaptureGame({
   petId,
   onComplete,
+  onSound,
 }: {
   petId: PetId;
   onComplete: () => void;
+  onSound?: (cue: SoundCue) => void;
 }) {
   const [hits, setHits] = useState(0);
   const [phase, setPhase] = useState(0);
@@ -49,10 +52,14 @@ export default function CaptureGame({
         onComplete();
         return;
       }
+      onSound?.('seal');
       setMessage(
         hitRef.current === 1 ? '它放松了下来，再靠近一点。' : '它已经开始信任你，最后一次！',
       );
-    } else setMessage('它还有一点害羞。没关系，可以继续尝试。');
+    } else {
+      onSound?.('mistake');
+      setMessage('它还有一点害羞。没关系，可以继续尝试。');
+    }
     cooldownTimer.current = setTimeout(() => {
       cooldownRef.current = false;
       setCooldown(false);

@@ -5,6 +5,7 @@ import { canPetFly, type FlightStatus } from '../game/flight';
 import { REGION_PLACES, TEMPLE_ENTRANCE, type RegionPlace } from '../game/landmarks';
 import { TEMPLE_THEMES } from '../game/temple';
 import { SPAWN_POSITION, type WorldPoint, type WorldZone } from '../game/world';
+import { useGameAudio } from './useGameAudio';
 import { useGameSession } from './useGameSession';
 import { createWorldTelemetry } from './worldTelemetry';
 
@@ -69,6 +70,13 @@ export function useAdventureController() {
   const readyToCapture = !owned && seals.length === 3;
   const doneToday = mode === 'real' && progress.completedDates.includes(today);
   const isModal = panel !== null || reward !== null;
+  const audio = useGameAudio({
+    region: regionId,
+    temple: insideTemple,
+    flying: flight.flying,
+    ducked: isModal,
+  });
+  const playSound = audio.play;
   const nextCrystal = [0, 1, 2].find((id) => !seals.includes(id));
   const RegionIcon = elementIcons[regionId];
   const notify = (message: string) => {
@@ -134,12 +142,14 @@ export function useAdventureController() {
     }
     setPanel(null);
     setReward('checkin');
+    audio.play('reward');
     setPetExcited((n) => n + 1);
   }
 
   function collect(id: number) {
     const result = session.collect(id, regionId);
     if (!result.collected) return;
+    audio.play('collect');
     if (result.region === 'meadow')
       notify(
         result.count === 3 ? '三枚光晶齐了，可以打开原野宝箱！' : `发现光晶 ${result.count} / 3`,
@@ -156,6 +166,7 @@ export function useAdventureController() {
   function unlockTreasure() {
     const result = session.openTreasure();
     if (!result.opened) return;
+    audio.play('reward');
     setPetExcited((n) => n + 1);
     setPanel('treasure');
   }
@@ -189,6 +200,7 @@ export function useAdventureController() {
     }
     returnToCamp();
     closeModal();
+    audio.play('travel');
     notify(`抵达${REGIONS[id].name}。${REGIONS[id].challenge}`);
   }
   function travelTo(next: WorldZone) {
@@ -213,6 +225,7 @@ export function useAdventureController() {
       travelToPlace(REGION_PLACES[regionId][0]);
       return;
     }
+    audio.play('travel');
     setInsideTemple(true);
     setTravelTarget(null);
     setTravelPoint(null);
@@ -246,6 +259,7 @@ export function useAdventureController() {
     const result = session.claimTemple(regionId);
     if (!result.completed) return;
     setPanel('relic');
+    audio.play('reward');
   }
   function startCapture() {
     if (flight.flying) {
@@ -264,6 +278,7 @@ export function useAdventureController() {
     }
     setPanel(null);
     setReward(region.petId);
+    audio.play('capture');
     setPetExcited((n) => n + 1);
   }
   function choosePet(id: PetId | null) {
@@ -276,9 +291,11 @@ export function useAdventureController() {
       notify('伙伴状态已更新，请重新选择随行伙伴。');
       return;
     }
+    if (id) audio.play('pet');
     notify(id ? `${PETS[id].name}会陪你一起旅行。` : '伙伴在营地休息，独自去看看吧。');
   }
   function interactWithPet() {
+    if (companion) audio.play('pet');
     setPetExcited((n) => n + 1);
     notify(companion ? `${companion.name}开心地回应了你！` : '先在伙伴图鉴选择一位随行伙伴吧。');
   }
@@ -322,6 +339,8 @@ export function useAdventureController() {
         : `前往${waypointNames[regionId][nextCrystal ?? 0]}`;
 
   return {
+    audio,
+    playSound,
     sceneId,
     sceneReady,
     reportSceneReady,

@@ -46,6 +46,7 @@ function budget(label, actual, limit) {
 const initial = closure([entry]);
 const world = resolveSource('src/components/WorldScene.tsx');
 const temple = resolveSource('src/components/TempleScene.tsx');
+const audio = resolveSource('src/audio/engine.ts');
 const regionNames = ['meadow', 'water', 'fire', 'earth', 'steel', 'fairy'];
 const regions = regionNames.map((name) =>
   resolveSource(`src/rendering/scenery/regions/${name}.ts`),
@@ -55,7 +56,7 @@ assert.equal(
   regionNames.length,
   'Regions must have distinct loadable files',
 );
-for (const key of [world, temple, ...regions])
+for (const key of [world, temple, audio, ...regions])
   assert(!initial.has(key), `Initial shell eagerly includes ${key}`);
 assert(
   ![...initial].some((key) => /three/i.test(manifest[key].file)),
@@ -70,9 +71,11 @@ for (const region of regions) {
 for (const region of regions)
   assert(!closure([world]).has(region), `Outdoor controller eagerly imports ${region}`);
 assert(!closure([world]).has(temple), 'Outdoor scene must not include the temple runtime');
+budget('Deferred audio engine gzip', sizes.get(audio).gzip, 16 * 1024);
 const initialSize = sum(initial);
 budget('Initial JS raw', initialSize.raw, 320 * 1024);
-budget('Initial JS gzip', initialSize.gzip, 95 * 1024);
+// Sound activation/preferences add ~3 KiB to the shell; synthesis and settings stay deferred.
+budget('Initial JS gzip', initialSize.gzip, 100 * 1024);
 const playable = sum(closure([entry, world, regions[0]]));
 budget('First playable world gzip', playable.gzip, 310 * 1024);
 const sharedThree = records.filter(([, value]) => /\/three-/.test(value.file));
@@ -87,6 +90,7 @@ const report = {
   initialCssGzip: css,
   regions: Object.fromEntries(regions.map((key, index) => [regionNames[index], sizes.get(key)])),
   deferredTemple: sizes.get(temple),
+  deferredAudio: sizes.get(audio),
   units: 'bytes; gzip is measured, not a simulated network latency',
 };
 await writeFile(new URL('bundle-report.json', root), JSON.stringify(report, null, 2) + '\n');

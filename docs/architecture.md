@@ -13,6 +13,7 @@ src/
     worldTelemetry.ts         位置/高度独立订阅
     presentation.ts           界面标签和图标映射
   game/                       纯规则、数据类型、session 与存档
+  audio/                      声音偏好、激活/暂停控制、按需合成引擎
   features/
     hud/                      常驻界面、任务栏、小地图
     dialogs/                  地图/图鉴/打卡/奖励等独立入口
@@ -65,5 +66,11 @@ npm run check
 架构回归测试检查领域依赖方向，以及从入口、WorldScene、每个地区递归追踪的静态运行时依赖。构建检查再验证最终 manifest 的静态闭包与独立产物，两层检查防止共享桶文件悄悄把地区合回首包。
 
 界面或场景编排变化还需用生产预览验证一次：首次进入、快速切区、图鉴开关、飞行与降落、神庙出入、窄屏布局及控制台错误。自动测试不替代真实 WebGL 视觉检查。
+
+## 声音接入
+
+`app/useGameAudio.ts` 管理音频控制器的生命周期，HUD 单独订阅声音状态。`audio/controller.ts` 处理交互激活、页面可见性、静音和独立偏好存储；只有首次有效交互才动态加载 `audio/engine.ts`。播放状态与游戏存档无依赖。
+
+游戏命令成功后发送 `SoundCue`，3D 场景/小游戏通过 `onSound` 回调表达意图，不直接创建 AudioContext 或写声音设置。新反馈事件在 `audio/types.ts` 和引擎中注册；避免在动画帧、普通渲染或状态更新函数中播放奖励音效。
 
 资源加载策略与部署约束见 [资源与性能](resource-loading.md)。

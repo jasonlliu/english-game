@@ -1,6 +1,7 @@
 import { ArrowLeft, Check, Compass, Gem, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import * as THREE from 'three';
+import type { SoundCue } from '../audio/types';
 import type { PetId, RegionId } from '../game/adventure';
 import { activateTempleSeal, TEMPLE_THEMES } from '../game/temple';
 import {
@@ -23,6 +24,7 @@ interface Props {
   completed: boolean;
   onComplete(): void;
   onExit(): void;
+  onSound?(cue: SoundCue): void;
 }
 export default function TempleScene(props: Props) {
   const host = useRef<HTMLDivElement>(null),
@@ -61,9 +63,13 @@ export default function TempleScene(props: Props) {
       } else setMessage('遗物被光幕守护。先依照碑文点亮三座光印。');
       return;
     }
-    const result = activateTempleSeal(sequenceRef.current, id, theme.order);
+    const previous = sequenceRef.current;
+    const result = activateTempleSeal(previous, id, theme.order);
     sequenceRef.current = result.sequence;
     setSequence(result.sequence);
+    if (!result.correct) latest.current.onSound?.('mistake');
+    else if (result.sequence.length > previous.length)
+      latest.current.onSound?.(result.solved ? 'temple-open' : 'seal');
     setMessage(
       result.solved
         ? '光幕消散了！走到殿堂深处，领取遗物。'

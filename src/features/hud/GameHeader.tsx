@@ -1,5 +1,6 @@
 import { CalendarCheck, Check, Compass, Map, PawPrint, Star, Sun } from 'lucide-react';
 import type { AdventureController } from '../../app/useAdventureController';
+import SoundControls from './SoundControls';
 import { REGION_IDS } from '../../game/adventure';
 
 export default function GameHeader({ game }: { game: AdventureController }) {
@@ -44,6 +45,7 @@ export default function GameHeader({ game }: { game: AdventureController }) {
           <span>{doneToday ? '今日已打卡' : '今日打卡'}</span>
           {!doneToday && <i />}
         </button>
+        <SoundControls audio={game.audio} blocked={isModal} />
         <button
           className="icon-button help-button"
           aria-label="玩法帮助"

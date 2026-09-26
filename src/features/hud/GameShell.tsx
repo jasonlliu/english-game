@@ -15,6 +15,7 @@ import WorldTitle from './WorldTitle';
 
 export default function GameShell({ game }: { game: AdventureController }) {
   const {
+    playSound,
     sceneId,
     reportSceneReady,
     interactWithPet,
@@ -81,6 +82,7 @@ export default function GameShell({ game }: { game: AdventureController }) {
             companionId={adventure.activePet}
             paused={isModal}
             completed={templeVisited}
+            onSound={playSound}
             onComplete={claimTempleRelic}
             onExit={exitTemple}
           />
@@ -111,6 +113,7 @@ export default function GameShell({ game }: { game: AdventureController }) {
             onPosition={setPosition}
             paused={isModal}
             flightRequest={flightRequest}
+            onSound={playSound}
             onFlightState={reportFlight}
             onFlightMessage={notify}
           />
@@ -207,6 +210,7 @@ export default function GameShell({ game }: { game: AdventureController }) {
             simulateTomorrow={simulateTomorrow}
             travelTo={travelTo}
             travelToPlace={travelToPlace}
+            playSound={playSound}
             finishCapture={finishCapture}
           />
         </ModalShell>

@@ -1,4 +1,5 @@
 import type { Panel } from '../../app/presentation';
+import type { SoundCue } from '../../audio/types';
 import {
   getUnlockedRegions,
   REGIONS,
@@ -33,6 +34,7 @@ export interface DialogProps {
   travelTo(zone: WorldZone): void;
   travelToPlace(place: RegionPlace): void;
   finishCapture(): void;
+  playSound(cue: SoundCue): void;
 }
 export function getDialogModel(props: DialogProps) {
   const regionId = props.adventure.currentRegion;
