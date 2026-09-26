@@ -94,3 +94,11 @@ npm run check
 原野 `secrets.ts` 根据 `SceneryFrame.discovery/today` 恢复模型外观，`discoveryInteraction` 仅传递敲铃动画事件；模型不授奖或读写存档。场景点击必须检查物件及所有父容器可见性，再核对当前开放地点，隐藏的阶段物件不能被射线选中。每日宝匣只保留一个模型并随日期移动；同行萤火仅在原野完成收藏后显示。
 
 新增发现应同时考虑坐标可达、线索方向、前置条件、重访、重复操作、存档恢复和按需分包。地图保留普通景点导航，秘密通过线索和近距离观察发现。
+
+## 原野活动与自然观察
+
+`game/fieldActivities.ts` 定义竞速和观察的纯状态机，以及第六个持久领域 `field`。`components/fieldActivityRuntime.ts` 负责同一场景内的临时活动编排、候选动物、一次性完成通知和低频 UI 快照；WorldScene 注入位置、速度、暂停/飞行状态和动物只读观察视图，不直接写存档。`FieldActivityHud` 同时提供键盘和触屏入口，`FieldNotebook` 在懒加载的探险手记中展示纪录。
+
+`RegionScenery.wildlife?()` 是可选的只读动物接口；地区可以独立提供物种、位置和惊逃状态。观察中 `SceneryFrame.observingId` 驱动目标标记；`SceneryFrame.race` 驱动原野工厂的竞速圆环。圈数、倒计时和观察记录由规则决定，渲染只提供反馈。
+
+场景卸载会结束临时活动，持久纪录仅通过 session 更新。新增活动时补起点/路线可达、暂停/离场、中断与重试、重复奖励以及真实/演示存档隔离回归。不能让地区内部模型直接调用 UI 或保存奖励。

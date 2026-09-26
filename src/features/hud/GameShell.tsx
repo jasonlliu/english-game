@@ -25,6 +25,7 @@ export default function GameShell({ game }: { game: AdventureController }) {
     adventure,
     templeProgress,
     discovery,
+    field,
     today,
     insideTemple,
     spawnPoint,
@@ -58,6 +59,8 @@ export default function GameShell({ game }: { game: AdventureController }) {
     checkin,
     collect,
     investigateDiscovery,
+    recordWildlife,
+    recordMeadowRace,
     newExpedition,
     resetDemo,
     simulateTomorrow,
@@ -98,8 +101,11 @@ export default function GameShell({ game }: { game: AdventureController }) {
             key={sceneId}
             onReady={reportSceneReady}
             discovery={discovery}
+            field={field}
             today={today}
             onDiscoveryInteract={investigateDiscovery}
+            onWildlifeObserved={recordWildlife}
+            onRaceFinished={recordMeadowRace}
             region={regionId}
             spawnPoint={spawnPoint}
             travelPoint={travelPoint}
@@ -220,6 +226,7 @@ export default function GameShell({ game }: { game: AdventureController }) {
             adventure={adventure}
             templeProgress={templeProgress}
             discovery={discovery}
+            field={field}
             today={today}
             flight={flight}
             closeModal={closeModal}

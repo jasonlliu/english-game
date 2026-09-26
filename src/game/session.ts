@@ -47,6 +47,16 @@ import {
   type DiscoveryProgress,
   type DiscoveryResult,
 } from './discovery';
+import {
+  createFieldProgress,
+  FIELD_STORAGE_KEYS,
+  recordMeadowRace,
+  recordWildlife,
+  sanitizeFieldProgress,
+  type FieldProgress,
+  type FieldResult,
+  type WildlifeResult,
+} from './fieldActivities';
 import type { WorldPoint } from './world';
 
 /** The session needs only these two methods; browser Storage and test stores both fit. */
@@ -62,6 +72,7 @@ export interface GameSnapshot {
   readonly adventure: Adventure;
   readonly templeProgress: TempleProgress;
   readonly discovery: DiscoveryProgress;
+  readonly field: FieldProgress;
   readonly today: string;
   readonly storageWarning: boolean;
 }
@@ -95,6 +106,8 @@ export interface GameSession {
   choosePet(id: PetId | null): { chosen: boolean; state: Adventure };
   claimTemple(region: RegionId): { completed: boolean; state: TempleProgress };
   investigateDiscovery(id: string, position: WorldPoint, expectedRegion: RegionId): DiscoveryResult;
+  recordWildlife(species: string, expectedRegion: RegionId): WildlifeResult;
+  recordMeadowRace(seconds: number, expectedRegion: RegionId): FieldResult;
 }
 
 const keysByStore = {
@@ -103,6 +116,7 @@ const keysByStore = {
   adventure: ADVENTURE_STORAGE_KEYS,
   templeProgress: TEMPLE_STORAGE_KEYS,
   discovery: DISCOVERY_STORAGE_KEYS,
+  field: FIELD_STORAGE_KEYS,
 } as const;
 type StoreName = keyof typeof keysByStore;
 const storeNames = Object.keys(keysByStore) as StoreName[];
@@ -124,6 +138,7 @@ interface Bundle {
   adventure: Entry<Adventure>;
   templeProgress: Entry<TempleProgress>;
   discovery: Entry<DiscoveryProgress>;
+  field: Entry<FieldProgress>;
 }
 const entry = <T>(value: T): Entry<T> => ({
   value,
@@ -158,6 +173,7 @@ export function createGameSession(options: GameSessionOptions = {}): GameSession
         adventure: entry(createAdventure(targetMode)),
         templeProgress: entry(createTempleProgress(targetMode)),
         discovery: entry(createDiscoveryProgress(targetMode)),
+        field: entry(createFieldProgress(targetMode)),
       };
       bundles.set(targetMode, bundle);
     }
@@ -183,6 +199,7 @@ export function createGameSession(options: GameSessionOptions = {}): GameSession
       adventure: bundle.adventure.value,
       templeProgress: bundle.templeProgress.value,
       discovery: bundle.discovery.value,
+      field: bundle.field.value,
       today,
       storageWarning,
     };
@@ -258,6 +275,7 @@ export function createGameSession(options: GameSessionOptions = {}): GameSession
     read(bundle.discovery, DISCOVERY_STORAGE_KEYS[mode], (value) =>
       sanitizeDiscoveryProgress(value, mode),
     );
+    read(bundle.field, FIELD_STORAGE_KEYS[mode], (value) => sanitizeFieldProgress(value, mode));
     // Migration and today's arrival are real changes; another same-day refresh is a no-op.
     replace(
       bundle.adventure,
@@ -368,6 +386,7 @@ export function createGameSession(options: GameSessionOptions = {}): GameSession
         replace(bundle.expedition, createExploration('demo'), true);
         replace(bundle.templeProgress, createTempleProgress('demo'), true);
         replace(bundle.discovery, createDiscoveryProgress('demo'), true);
+        replace(bundle.field, createFieldProgress('demo'), true);
         replace(
           bundle.adventure,
           visitAdventure(createAdventure('demo', progress), progress, today),
@@ -435,6 +454,25 @@ export function createGameSession(options: GameSessionOptions = {}): GameSession
         );
         replace(bundle.discovery, result.state, true);
         return { ...result, state: bundle.discovery.value };
+      });
+    },
+    recordWildlife(species, expectedRegion) {
+      return transact((bundle) => {
+        const region = bundle.adventure.value.currentRegion;
+        if (region !== expectedRegion)
+          return { state: bundle.field.value, changed: false, completed: false };
+        const result = recordWildlife(bundle.field.value, species, region);
+        replace(bundle.field, result.state, true);
+        return { ...result, state: bundle.field.value };
+      });
+    },
+    recordMeadowRace(seconds, expectedRegion) {
+      return transact((bundle) => {
+        const region = bundle.adventure.value.currentRegion;
+        if (region !== expectedRegion) return { state: bundle.field.value, changed: false };
+        const result = recordMeadowRace(bundle.field.value, seconds, region);
+        replace(bundle.field, result.state, true);
+        return { ...result, state: bundle.field.value };
       });
     },
   };

@@ -1,0 +1,124 @@
+.field-notebook {
+  margin-top: 26px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #a3a88c44;
+}
+.field-notebook-title > span {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #9b956e;
+}
+.field-notebook-title h3 {
+  color: #536d52;
+  font:
+    22px 'Songti SC',
+    serif;
+  margin: 7px 0 17px;
+}
+.race-notebook {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #dfb96420;
+  border: 1px solid #bca5784d;
+  border-radius: 12px;
+  padding: 15px;
+}
+.race-notebook > span {
+  font-size: 30px;
+  color: #ac8344;
+}
+.race-notebook h4,
+.field-species-grid h4,
+.field-notebook-heading h4 {
+  color: #50664c;
+  margin: 0;
+  font-size: 13px;
+}
+.expedition-journal .race-notebook p,
+.expedition-journal .field-species-grid p {
+  font-size: 11px;
+  margin: 5px 0;
+  line-height: 1.7;
+}
+.race-notebook small {
+  color: #a48e61;
+  font-size: 9px;
+}
+.race-notebook > strong {
+  flex-shrink: 0;
+  color: #8d6e31;
+  font-size: 19px;
+  text-align: right;
+}
+.race-notebook > strong small {
+  display: block;
+  margin-top: 5px;
+}
+.field-notebook-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 22px;
+  color: #7b8b65;
+  font-size: 13px;
+}
+.field-species-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+.field-species-grid article {
+  display: flex;
+  gap: 11px;
+  padding: 13px;
+  border: 1px dashed #9aa48655;
+  border-radius: 10px;
+  opacity: 0.66;
+}
+.field-species-grid article.is-observed {
+  border-style: solid;
+  opacity: 1;
+  background: #d7e3ce36;
+}
+.field-species-grid article > span {
+  font-size: 26px;
+}
+.field-species-grid small {
+  color: #8b967a;
+  font-size: 9px;
+}
+.field-naturalist {
+  padding: 13px;
+  margin-top: 15px;
+  text-align: center;
+  color: #667c4d;
+  border: 1px solid #93a47666;
+  border-radius: 9px;
+  background: #dae5c955;
+}
+.field-naturalist small {
+  display: block;
+  font-size: 10px;
+  margin-top: 5px;
+}
+@media (max-width: 600px) {
+  .field-species-grid {
+    grid-template-columns: 1fr;
+  }
+  .race-notebook {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .race-notebook > div {
+    flex: 1;
+  }
+  .race-notebook > strong {
+    width: 100%;
+    padding-top: 8px;
+    border-top: 1px solid #baa77e36;
+  }
+  .field-notebook-title h3 {
+    font-size: 19px;
+  }
+}

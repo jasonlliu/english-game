@@ -15,6 +15,13 @@ import {
 import { createLocomotionState, stepLocomotion, stepFollower } from '../game/locomotion';
 import RunControl from './RunControl';
 import DiscoveryPrompt from './DiscoveryPrompt';
+import FieldActivityHud from './FieldActivityHud';
+import {
+  createFieldActivityRuntime,
+  EMPTY_FIELD_VIEW,
+  type FieldActivityView,
+} from './fieldActivityRuntime';
+import { RACE_GATES, type FieldProgress } from '../game/fieldActivities';
 import { getAvailableDiscoverySites, type DiscoveryProgress } from '../game/discovery';
 import { getDiscoveryProximity, type DiscoveryProximity } from '../game/discoveryProximity';
 import { REGION_PLACES, REGION_VOLUMES, TEMPLE_ENTRANCE } from '../game/landmarks';
@@ -41,6 +48,9 @@ import { WORLD_THEMES } from '../rendering/world/themes';
 export interface WorldSceneProps {
   sceneryFactory: SceneryFactory;
   discovery?: DiscoveryProgress;
+  field?: FieldProgress;
+  onWildlifeObserved?: (kind: string) => void;
+  onRaceFinished?: (seconds: number) => void;
   today?: string;
   onDiscoveryInteract?: (id: string, position: WorldPoint) => void;
   onReady?: (ready: boolean) => void;
@@ -82,6 +92,10 @@ export default function WorldScene(props: WorldSceneProps) {
   const replaceCompanionRef = useRef<(() => void) | null>(null);
   const replaceWildRef = useRef<(() => void) | null>(null);
   const captureRef = useRef<(() => void) | null>(null);
+  const fieldStartRef = useRef<(() => void) | null>(null);
+  const fieldCancelRef = useRef<(() => void) | null>(null);
+  const fieldObserveRef = useRef<((held: boolean) => void) | null>(null);
+  const [fieldView, setFieldView] = useState<FieldActivityView>(EMPTY_FIELD_VIEW);
   const discoveryInteractRef = useRef<(() => void) | null>(null);
   const [discoveryProximity, setDiscoveryProximity] = useState<DiscoveryProximity>({
     near: null,
@@ -183,6 +197,9 @@ export default function WorldScene(props: WorldSceneProps) {
       captureRef.current = null;
       enterTempleRef.current = null;
       discoveryInteractRef.current = null;
+      fieldStartRef.current = null;
+      fieldCancelRef.current = null;
+      fieldObserveRef.current = null;
       navigateRef.current = null;
       excitementRef.current = null;
       jumpRef.current = null;
@@ -201,7 +218,7 @@ export default function WorldScene(props: WorldSceneProps) {
       canvas.setAttribute('role', 'application');
       canvas.setAttribute(
         'aria-label',
-        '操控人类探险家自由探索，宠物会跟随你。WASD 或方向键移动，按住 Shift 奔跑，空格跳跃，拖拽转动视角，点击地面前往。靠近线索按 E 调查，靠近野生伙伴按 E 建立羁绊。可飞行伙伴随行时按 F 骑乘起飞或安全降落，飞行时空格上升，Shift 或 Control 下降。',
+        '操控人类探险家自由探索，宠物会跟随你。WASD 或方向键移动，按住 Shift 奔跑，空格跳跃，拖拽转动视角，点击地面前往。靠近动物按住 Q 观察，在入口旗帜旁按 R 开始穿环竞速。靠近线索按 E 调查，靠近野生伙伴按 E 建立羁绊。可飞行伙伴随行时按 F 骑乘起飞或安全降落，飞行时空格上升，Shift 或 Control 下降。',
       );
       mount.appendChild(canvas);
       const scene = new THREE.Scene();
@@ -400,6 +417,34 @@ export default function WorldScene(props: WorldSceneProps) {
         setMovingTo(false);
         waypoint.visible = false;
       };
+      const fieldRuntime =
+        region === 'meadow'
+          ? createFieldActivityRuntime({
+              read: () => ({
+                position: player,
+                speed: heroMotion.speed,
+                paused: propsRef.current.paused || document.hidden,
+                flying: flightPhase !== 'ground',
+                jumping: jumpHeight > 0.2,
+                field: propsRef.current.field,
+                wildlife: regionalScenery.wildlife?.() ?? [],
+                viewYaw: yaw,
+              }),
+              publish: setFieldView,
+              stopMovement: stopNavigation,
+              sound: (cue) => propsRef.current.onSound?.(cue),
+              observed: (kind) => propsRef.current.onWildlifeObserved?.(kind),
+              finished: (seconds) => propsRef.current.onRaceFinished?.(seconds),
+            })
+          : null;
+      fieldStartRef.current = () => {
+        fieldRuntime?.start();
+        if (fieldRuntime?.getRace()?.status === 'running')
+          arrivalViewYaw = Math.atan2(player.x - RACE_GATES[0].x, player.z - RACE_GATES[0].z);
+        canvas.focus({ preventScroll: true });
+      };
+      fieldCancelRef.current = () => fieldRuntime?.cancel();
+      fieldObserveRef.current = (held) => fieldRuntime?.holdObservation(held);
       let discoveryInteraction: { id: string; serial: number } | undefined;
       let lastDiscoveryTime = -1;
       let currentDiscovery: DiscoveryProximity = { near: null, sense: null };
@@ -643,6 +688,16 @@ export default function WorldScene(props: WorldSceneProps) {
           !!target.closest('input,textarea,select,[contenteditable="true"]'));
       const keyDown = (event: KeyboardEvent) => {
         if (propsRef.current.paused || isEditable(event.target)) return;
+        if (event.code === 'KeyR' && !event.repeat) {
+          event.preventDefault();
+          fieldStartRef.current?.();
+          return;
+        }
+        if (event.code === 'KeyQ') {
+          event.preventDefault();
+          if (!event.repeat) fieldObserveRef.current?.(true);
+          return;
+        }
         if (event.code === 'KeyF') {
           event.preventDefault();
           if (!event.repeat) toggleFlightRef.current?.();
@@ -685,9 +740,11 @@ export default function WorldScene(props: WorldSceneProps) {
       };
       const keyUp = (event: KeyboardEvent) => {
         keys.delete(event.code);
+        if (event.code === 'KeyQ') fieldObserveRef.current?.(false);
       };
       const blur = () => {
         keys.clear();
+        fieldObserveRef.current?.(false);
         resetMotion();
         joystickRef.current = { x: 0, y: 0 };
         flightHoldRef.current = { rise: false, descend: false };
@@ -969,6 +1026,14 @@ export default function WorldScene(props: WorldSceneProps) {
         }
         if (!paused && arrivalViewYaw !== null && !dragging && heroMotion.speed < 0.1)
           yaw = lerpAngle(yaw, arrivalViewYaw, 1 - Math.exp(-delta * 2));
+        fieldRuntime?.update(delta);
+        const subject = fieldRuntime?.subject();
+        if (subject && !paused && !dragging && heroMotion.speed < 0.45)
+          yaw = lerpAngle(
+            yaw,
+            Math.atan2(player.x - subject.x, player.z - subject.z),
+            1 - Math.exp(-delta * 2.3),
+          );
         const proximity = readDiscoveryProximity();
         if (
           proximity.near?.id !== currentDiscovery.near?.id ||
@@ -1207,7 +1272,14 @@ export default function WorldScene(props: WorldSceneProps) {
           discovery: propsRef.current.discovery,
           today: propsRef.current.today,
           companion: !!companion,
+          observingId: subject?.id,
           discoveryInteraction,
+          race: fieldRuntime
+            ? {
+                active: fieldRuntime.getRace()?.status === 'running',
+                nextGate: fieldRuntime.getRace()?.nextGate ?? 0,
+              }
+            : undefined,
         });
         if (now - lastPositionTime > 0.125) {
           lastPositionTime = now;
@@ -1312,13 +1384,25 @@ export default function WorldScene(props: WorldSceneProps) {
           正在前往<span className="world-auto-walk-hint"> · Shift 奔跑 · 方向键取消</span>
         </div>
       )}
-      {!props.paused && !flightControls.flying && props.onDiscoveryInteract && (
-        <DiscoveryPrompt
-          proximity={discoveryProximity}
-          companion={props.companionId !== null}
-          onInteract={() => discoveryInteractRef.current?.()}
+      {!props.paused && !flightControls.flying && props.field && props.region === 'meadow' && (
+        <FieldActivityHud
+          view={fieldView}
+          field={props.field}
+          start={() => fieldStartRef.current?.()}
+          cancel={() => fieldCancelRef.current?.()}
+          observe={(held) => fieldObserveRef.current?.(held)}
         />
       )}
+      {!props.paused &&
+        !flightControls.flying &&
+        fieldView.race?.status !== 'running' &&
+        props.onDiscoveryInteract && (
+          <DiscoveryPrompt
+            proximity={discoveryProximity}
+            companion={props.companionId !== null}
+            onInteract={() => discoveryInteractRef.current?.()}
+          />
+        )}
       {nearWild && props.wildPetId && !props.paused && !flightControls.flying && (
         <div className="wild-bond-prompt">
           {props.canCapture ? (

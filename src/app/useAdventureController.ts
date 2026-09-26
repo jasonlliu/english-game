@@ -4,6 +4,7 @@ import { getUnlockedRegions, PETS, REGIONS, type PetId, type RegionId } from '..
 import type { FlightStatus } from '../game/flight';
 import { canPetFly } from '../game/flightEligibility';
 import { getDiscoveryObjective } from '../game/discovery';
+import { MIN_RACE_SECONDS, RACE_DURATION } from '../game/fieldActivities';
 import { REGION_PLACES, TEMPLE_ENTRANCE, type RegionPlace } from '../game/landmarks';
 import { TEMPLE_THEMES } from '../game/temple';
 import { SPAWN_POSITION, type WorldPoint, type WorldZone } from '../game/worldLayout';
@@ -23,6 +24,7 @@ export function useAdventureController() {
     adventure,
     templeProgress,
     discovery,
+    field,
     today,
     storageWarning,
   } = snapshot;
@@ -192,6 +194,45 @@ export function useAdventureController() {
     else if (result.changed) playSound(result.reward ? 'reward' : 'collect');
     if (result.changed && result.reward) setPetExcited((n) => n + 1);
     notify(result.message);
+  }
+  function canRecordFieldActivity() {
+    const current = session.getSnapshot();
+    return (
+      current.mode === mode &&
+      current.adventure.currentRegion === regionId &&
+      regionId === 'meadow' &&
+      !discoveryContext.current.isModal &&
+      !discoveryContext.current.insideTemple &&
+      !telemetry.flight.getSnapshot().flying
+    );
+  }
+  function recordWildlife(kind: string) {
+    if (!canRecordFieldActivity()) return;
+    const result = session.recordWildlife(kind, regionId);
+    if (!result.changed) return;
+    playSound(result.completed ? 'reward' : 'collect');
+    setPetExcited((n) => n + 1);
+    notify(
+      result.completed
+        ? '五种动物都认识了！获得「原野观察家」徽章。'
+        : `自然笔记 +1 · 已观察 ${result.state.observed.length} / 5 种动物，打开手记查看。`,
+    );
+  }
+  function recordMeadowRace(seconds: number) {
+    if (
+      !canRecordFieldActivity() ||
+      !Number.isFinite(seconds) ||
+      seconds < MIN_RACE_SECONDS ||
+      seconds > RACE_DURATION
+    )
+      return;
+    const result = session.recordMeadowRace(seconds, regionId);
+    if (!canRecordFieldActivity()) return;
+    playSound('reward');
+    setPetExcited((n) => n + 1);
+    notify(
+      `${seconds.toFixed(2)} 秒完成风车竞速${result.changed ? '，刷新个人最好成绩！' : '，可以再试一次挑战纪录。'}`,
+    );
   }
   function unlockTreasure() {
     const result = session.openTreasure();
@@ -381,6 +422,7 @@ export function useAdventureController() {
     adventure,
     templeProgress,
     discovery,
+    field,
     discoveryObjective,
     today,
     insideTemple,
@@ -432,6 +474,8 @@ export function useAdventureController() {
     checkin,
     collect,
     investigateDiscovery,
+    recordWildlife,
+    recordMeadowRace,
     unlockTreasure,
     newExpedition,
     resetDemo,

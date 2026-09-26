@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createAdventure } from '../src/game/adventure';
+import { createFieldProgress } from '../src/game/fieldActivities';
 import {
   createDiscoveryProgress,
   DISCOVERY_ORDER,
@@ -17,6 +18,7 @@ function renderJournal(discovery: DiscoveryProgress) {
   return renderToStaticMarkup(
     createElement(ExpeditionJournal, {
       discovery,
+      field: createFieldProgress('real'),
       today,
       adventure: createAdventure('real'),
       closeModal() {},

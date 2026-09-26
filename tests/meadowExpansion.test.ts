@@ -94,10 +94,10 @@ test('expanded structures are solid and their roof footprints participate in fli
   assert(isWalkable(70, 50), 'The garden arch must remain open at ground level');
 });
 
-test('all three animal species start on traversable land, with visible animals near arrival', () => {
+test('all five animal species start on traversable land, with visible animals near arrival', () => {
   const { animals } = createWildlifeSimulation();
-  assert.equal(animals.length, 18);
-  for (const kind of ['deer', 'rabbit', 'bird']) {
+  assert.equal(animals.length, 23);
+  for (const kind of ['deer', 'rabbit', 'bird', 'fox', 'butterfly']) {
     assert(animals.some((animal) => animal.kind === kind && distance(animal, SPAWN_POSITION) < 18));
   }
   assert(animals.every((animal) => isWalkable(animal.x, animal.z)));
@@ -146,6 +146,83 @@ test('animal gait follows distance without a phase jump when startled, and pause
   const paused = structuredClone(simulation.animals);
   simulation.update(1e8, { position: { ...deer }, running: true, delta: 0 });
   assert.deepEqual(simulation.animals, paused);
+});
+
+test('animal feeding and rest cycles stay local and traversable over a long quiet visit', () => {
+  const simulation = createWildlifeSimulation();
+  const activities = new Map(simulation.animals.map((animal) => [animal.id, new Set<number>()]));
+  const travelled = new Map(simulation.animals.map((animal) => [animal.id, 0]));
+  for (let i = 0; i < 1800; i++) {
+    simulation.update(i / 20, { position: { x: 1000, z: 1000 }, running: false, delta: 0.05 });
+    for (const animal of simulation.animals) {
+      activities.get(animal.id)!.add(animal.activity);
+      travelled.set(animal.id, travelled.get(animal.id)! + animal.speed * 0.05);
+      assert(isWalkable(animal.x, animal.z), animal.id);
+      assert(distance(animal, animal.home) < 12, `${animal.id} must remain in its habitat`);
+    }
+  }
+  for (const animal of simulation.animals) {
+    assert.equal(activities.get(animal.id)!.size, 3, `${animal.id} feeds, rests and wanders`);
+    assert(travelled.get(animal.id)! > 1, `${animal.id} can reach another feeding patch`);
+  }
+});
+
+test('observation reports stable identities and distinguishes curiosity from fleeing', () => {
+  const wildlife = createMeadowWildlife();
+  try {
+    const observation = wildlife.observe();
+    assert.equal(new Set(observation.map((animal) => animal.id)).size, observation.length);
+    const fox = observation.find((animal) => animal.kind === 'fox')!;
+    const visitor = { x: fox.x + 6, z: fox.z };
+    for (let i = 0; i < 60; i++)
+      wildlife.update(i / 60, { position: visitor, running: false, delta: 1 / 60 });
+    assert(fox.alert > 0.9);
+    assert.equal(fox.startled, false, 'A quiet observer can study an attentive animal');
+    wildlife.update(2, { position: visitor, running: true, delta: 1 / 60 });
+    assert.equal(fox.startled, true);
+    assert.equal(wildlife.observe(), observation, 'A frame read does not allocate new snapshots');
+  } finally {
+    wildlife.dispose();
+  }
+});
+
+test('the observation ring follows the selected animal, switches and clears, and disposes once', () => {
+  const wildlife = createMeadowWildlife();
+  const marker = wildlife.group.getObjectByName('wildlife-observation-marker') as THREE.Mesh;
+  const animals = wildlife.observe();
+  const fox = animals.find((animal) => animal.kind === 'fox')!;
+  const butterfly = animals.find((animal) => animal.kind === 'butterfly')!;
+  let geometryDisposals = 0;
+  let materialDisposals = 0;
+  marker.geometry.addEventListener('dispose', () => geometryDisposals++);
+  (marker.material as THREE.Material).addEventListener('dispose', () => materialDisposals++);
+  const frame = { position: { x: 1000, z: 1000 }, running: false, delta: 0.05 };
+  try {
+    assert.equal(marker.visible, false);
+    const before = { x: fox.x, z: fox.z };
+    for (let i = 0; i < 130; i++) {
+      wildlife.update(i * 0.05, { ...frame, observingId: fox.id });
+      assert.equal(marker.visible, true);
+      assert.equal(marker.position.x, fox.x);
+      assert.equal(marker.position.z, fox.z);
+    }
+    assert(distance(before, fox) > 0.1, 'The selected animal moves while its marker follows');
+    wildlife.update(7, { ...frame, observingId: butterfly.id });
+    assert.equal(marker.position.x, butterfly.x);
+    assert.equal(marker.position.z, butterfly.z);
+    assert.equal(marker.position.y, getTerrainHeight(butterfly.x, butterfly.z) + 0.08);
+    wildlife.update(8, { ...frame, observingId: 'unknown' });
+    assert.equal(marker.visible, false);
+    wildlife.update(9, { ...frame, observingId: fox.id });
+    assert.equal(marker.visible, true);
+    wildlife.update(10, frame);
+    assert.equal(marker.visible, false);
+  } finally {
+    wildlife.dispose();
+    wildlife.dispose();
+  }
+  assert.equal(geometryDisposals, 1);
+  assert.equal(materialDisposals, 1);
 });
 
 test('wildlife uses three shared draw batches, freezes poses while paused and releases resources once', () => {

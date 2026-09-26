@@ -65,6 +65,27 @@ export function buildMeadowExpansion(kit: SceneryKit) {
   }
   const ember = material('#eeb371', { emissive: '#d78840', emissiveIntensity: 0.5 });
   ball(fire, ember, 0, 0.41, 0, 0.35, 0.3, 0.35);
+  const flame = new THREE.Group();
+  flame.name = 'meadow-campfire';
+  flame.position.y = 0.36;
+  fire.add(flame);
+  for (let i = 0; i < 4; i++) {
+    const tongue = cone(
+      flame,
+      ember,
+      Math.sin(i * 2.4) * 0.2,
+      0.35,
+      Math.cos(i * 2.4) * 0.18,
+      0.19,
+      0.76,
+      5,
+    );
+    tongue.rotation.z = Math.sin(i) * 0.2;
+  }
+  animate(flame, (time) => {
+    flame.scale.set(1 + Math.sin(time * 7) * 0.1, 0.85 + Math.sin(time * 11) * 0.17, 1);
+    flame.rotation.y = time * 0.5;
+  });
 
   // A garden arch and a small conservatory frame the eastern field of wildflowers.
   const garden = origin(70, 50);
@@ -96,6 +117,22 @@ export function buildMeadowExpansion(kit: SceneryKit) {
     }
   for (const side of [-1, 1]) box(greenhouse, wood, side * 0.66, 1.6, 2.62, 0.14, 2.7, 0.12);
   box(greenhouse, wood, 0, 2.95, 2.62, 1.45, 0.13, 0.12);
+  for (const side of [-1, 1]) {
+    roof(greenhouse, tealCanvas, side * 2.5, 4.3, 0, 1.5, 0.48, 5.85);
+    for (let i = 0; i < 4; i++) {
+      box(greenhouse, canvas, side * 2.35, 0.92 + i * 0.62, -1.9, 1.3, 0.15, 0.9);
+      ball(
+        greenhouse,
+        i % 2 ? lavender : leaves,
+        side * 2.35,
+        1.15 + i * 0.62,
+        -1.9,
+        0.53,
+        0.25,
+        0.39,
+      );
+    }
+  }
   for (let i = 0; i < 6; i++) {
     const planter = origin(60 + i * 3.2, 66 + Math.sin(i) * 2);
     cylinder(planter, canvas, 0, 0.2, 0, 0.28, 0.2, 0.4, 8);

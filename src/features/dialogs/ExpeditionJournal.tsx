@@ -5,6 +5,7 @@ import {
   type DiscoveryId,
 } from '../../game/discovery';
 import type { DialogProps } from './types';
+import FieldNotebook from './FieldNotebook';
 
 // The narrative stays in this lazy dialog. Only pages already discovered are shown.
 const pages: Record<DiscoveryId, { title: string; text: string }> = {
@@ -41,11 +42,12 @@ const bellNames = ['风', '泉', '星'];
 
 export default function ExpeditionJournal({
   discovery,
+  field,
   today,
   adventure,
   closeModal,
   setPanel,
-}: Pick<DialogProps, 'discovery' | 'today' | 'adventure' | 'closeModal' | 'setPanel'>) {
+}: Pick<DialogProps, 'discovery' | 'field' | 'today' | 'adventure' | 'closeModal' | 'setPanel'>) {
   const objective = getDiscoveryObjective(discovery);
   const knowsRumor = discovery.found.includes('letter');
   const knowsSong = discovery.found.includes('cache');
@@ -55,7 +57,8 @@ export default function ExpeditionJournal({
     <div className="expedition-journal">
       <div className="eyebrow">NOTES FROM THE MEADOW</div>
       <h2>原野探险手记</h2>
-      <p className="journal-intro">失落的风铃，和沿途值得记住的小事。</p>
+      <p className="journal-intro">挑战风速，认识原野的邻居，再寻找旅人留下的秘密。</p>
+      <FieldNotebook field={field} />
 
       <section className="discovery-current" aria-labelledby="discovery-current-title">
         <div className="discovery-section-heading">

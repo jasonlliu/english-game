@@ -5,10 +5,11 @@ import {
   resolveMovement,
   type WorldPoint,
 } from '../../../game/world';
-import type { SceneryFrame } from '../types';
+import type { SceneryFrame, WildlifeObservation } from '../types';
 
-export type WildlifeKind = 'deer' | 'rabbit' | 'bird';
+export type WildlifeKind = WildlifeObservation['kind'];
 export interface MeadowAnimal extends WorldPoint {
+  readonly id: string;
   readonly kind: WildlifeKind;
   readonly home: WorldPoint;
   readonly phase: number;
@@ -18,10 +19,15 @@ export interface MeadowAnimal extends WorldPoint {
   flight: number;
   alarm: number;
   gait: number;
+  startled: boolean;
+  activity: number;
+  timer: number;
+  cycle: number;
+  target: WorldPoint;
 }
 const SPAWNS: ReadonlyArray<readonly [WildlifeKind, number, number]> = [
   ['deer', -6, 13],
-  ['deer', 17, 12],
+  ['deer', -8, 11],
   ['deer', -69, 44],
   ['deer', -73, 49],
   ['deer', 46, -69],
@@ -38,6 +44,11 @@ const SPAWNS: ReadonlyArray<readonly [WildlifeKind, number, number]> = [
   ['bird', -74, 44],
   ['bird', -6, -84],
   ['bird', 43, 56],
+  ['fox', -9, 18],
+  ['fox', -57, 43],
+  ['butterfly', 6, 23],
+  ['butterfly', 64, 59],
+  ['butterfly', 67, 62],
 ];
 const approachAngle = (from: number, to: number, amount: number) =>
   from + Math.atan2(Math.sin(to - from), Math.cos(to - from)) * amount;
@@ -51,6 +62,7 @@ export function createWildlifeSimulation() {
       home = { x: x + Math.cos(angle) * (1 + i * 0.22), z: z + Math.sin(angle) * (1 + i * 0.22) };
     }
     return {
+      id: `meadow-${kind}-${index}`,
       kind,
       ...home,
       home,
@@ -61,30 +73,43 @@ export function createWildlifeSimulation() {
       flight: 0,
       alarm: 0,
       gait: 0,
+      startled: false,
+      activity: index % 3,
+      timer: 1 + (index % 5),
+      cycle: 0,
+      target: { ...home },
     };
   });
-  let elapsed = 0;
   return {
     animals,
     update(_time: number, frame: SceneryFrame) {
       const dt = Number.isFinite(frame.delta) ? Math.max(0, Math.min(0.05, frame.delta)) : 0;
       if (!dt) return;
-      elapsed += dt;
       for (const animal of animals) {
         const distance = Math.hypot(frame.position.x - animal.x, frame.position.z - animal.z);
-        const startled = distance < (frame.running ? 11 : animal.kind === 'bird' ? 4.2 : 3.2);
+        const startled = distance < (frame.running ? 11 : animal.kind === 'bird' ? 3.6 : 2.6);
         if (startled) animal.alarm = animal.kind === 'bird' ? 3.2 : 2.2;
         else animal.alarm = Math.max(0, animal.alarm - dt);
         const aware = distance < (frame.running ? 16 : 7) || animal.alarm > 0;
         animal.alert += ((aware ? 1 : 0) - animal.alert) * (1 - Math.exp(-dt * 6));
-        const escaping = animal.alarm > 0;
-        const wander = {
-          x: animal.home.x + Math.sin(elapsed * 0.17 + animal.phase) * 4.5,
-          z: animal.home.z + Math.cos(elapsed * 0.13 + animal.phase) * 3.7,
-        };
-        let dx = escaping ? animal.x - frame.position.x : wander.x - animal.x;
-        let dz = escaping ? animal.z - frame.position.z : wander.z - animal.z;
-        if (Math.hypot(dx, dz) < 0.05) {
+        const escaping = (animal.startled = animal.alarm > 0);
+        animal.timer -= dt;
+        if (animal.timer <= 0) {
+          animal.cycle++;
+          animal.activity = (animal.cycle + Math.floor(animal.phase)) % 3;
+          animal.timer = 2.5 + (Math.sin(animal.phase + animal.cycle * 4.3) + 1) * 2;
+          const angle = animal.phase + animal.cycle * 2.4;
+          // Calves forage near the adult; other species visit local feeding patches.
+          const herd =
+            animal.kind === 'deer' && animals.indexOf(animal) % 2 === 1
+              ? animals[animals.indexOf(animal) - 1]
+              : animal.home;
+          animal.target = { x: herd.x + Math.cos(angle) * 3, z: herd.z + Math.sin(angle) * 3 };
+        }
+        let dx = escaping ? animal.x - frame.position.x : animal.target.x - animal.x;
+        let dz = escaping ? animal.z - frame.position.z : animal.target.z - animal.z;
+        const remaining = Math.hypot(dx, dz);
+        if (remaining < 0.05) {
           dx = Math.sin(animal.phase);
           dz = Math.cos(animal.phase);
         }
@@ -94,12 +119,12 @@ export function createWildlifeSimulation() {
             : animal.kind === 'rabbit'
               ? 4.2
               : 5.1
-          : aware
+          : aware && animal.kind !== 'butterfly'
             ? 0
-            : Math.sin(elapsed * 0.65 + animal.phase) > -0.05
+            : animal.activity === 2 && remaining > 0.4
               ? animal.kind === 'deer'
                 ? 0.65
-                : 0.45
+                : 0.55
               : 0;
         const speed = animal.speed + (targetSpeed - animal.speed) * (1 - Math.exp(-dt * 5));
         const angle = Math.atan2(-dx, -dz);
@@ -127,7 +152,13 @@ export function createWildlifeSimulation() {
           (animal.speed * dt * Math.PI * 2) /
           (animal.kind === 'deer' ? 2.6 : animal.kind === 'rabbit' ? 1.25 : 0.75);
         animal.flight +=
-          ((animal.kind === 'bird' && escaping ? 1 : 0) - animal.flight) * (1 - Math.exp(-dt * 3));
+          ((animal.kind === 'butterfly'
+            ? 0.4
+            : animal.kind === 'bird' && (escaping || (animal.activity === 2 && animal.speed > 0.2))
+              ? 1
+              : 0) -
+            animal.flight) *
+          (1 - Math.exp(-dt * 3));
       }
     },
   };
@@ -173,6 +204,8 @@ export function createMeadowWildlife() {
   const rigs = simulation.animals.map((animal, index) => {
     const root = new THREE.Group();
     group.add(root);
+    root.name = animal.id;
+    if (animal.kind === 'deer') root.scale.setScalar(index % 2 ? 0.63 : 1.08);
     const fur =
       animal.kind === 'deer'
         ? index % 2
@@ -182,15 +215,32 @@ export function createMeadowWildlife() {
           ? index % 3
             ? '#d5c6ab'
             : '#e6e1d2'
-          : '#4d91a0';
+          : animal.kind === 'fox'
+            ? '#c96b32'
+            : index % 2
+              ? '#508ea5'
+              : '#c38a43';
     const head = pivot(
       root,
       0,
-      animal.kind === 'deer' ? 1.85 : animal.kind === 'rabbit' ? 0.62 : 0.49,
-      animal.kind === 'deer' ? -0.74 : animal.kind === 'rabbit' ? -0.33 : -0.2,
+      animal.kind === 'deer'
+        ? 1.85
+        : animal.kind === 'rabbit'
+          ? 0.62
+          : animal.kind === 'fox'
+            ? 0.82
+            : 0.49,
+      animal.kind === 'deer'
+        ? -0.74
+        : animal.kind === 'rabbit'
+          ? -0.33
+          : animal.kind === 'fox'
+            ? -0.56
+            : -0.2,
     );
     const legs: THREE.Object3D[] = [],
       wings: THREE.Object3D[] = [];
+    const tail = pivot(root, 0, animal.kind === 'fox' ? 0.62 : 0.25, 0.42);
     if (animal.kind === 'deer') {
       part(root, 'sphere', fur, [0, 1.27, 0], [0.43, 0.54, 0.88]);
       part(root, 'sphere', '#dfc9a5', [0, 1.0, -0.16], [0.32, 0.31, 0.59]);
@@ -225,6 +275,15 @@ export function createMeadowWildlife() {
               [0.045, 0.36, 0.045],
               [branch * 0.3, 0, side * -0.3],
             );
+            if (branch < 2)
+              part(
+                head,
+                'cone',
+                '#d9ccb0',
+                [side * (0.28 + branch * 0.075), 0.52 + branch * 0.2, -0.04],
+                [0.038, 0.3, 0.038],
+                [-0.75, 0, side * -0.8],
+              );
           }
         for (let spot = 0; spot < 4; spot++)
           part(
@@ -247,7 +306,7 @@ export function createMeadowWildlife() {
           fur,
           [side * 0.1, 0.33, 0.02],
           [0.072, 0.34, 0.08],
-          [-0.14, 0, side * -0.15],
+          [-0.14, 0, side * (index % 2 && side === 1 ? -0.8 : -0.15)],
         );
         part(
           head,
@@ -255,7 +314,7 @@ export function createMeadowWildlife() {
           '#c9a89d',
           [side * 0.1, 0.35, -0.051],
           [0.037, 0.24, 0.014],
-          [-0.14, 0, side * -0.15],
+          [-0.14, 0, side * (index % 2 && side === 1 ? -0.8 : -0.15)],
         );
         part(head, 'sphere', '#333b38', [side * 0.184, 0.045, -0.17], [0.031, 0.041, 0.036]);
         for (const fore of [-1, 1]) {
@@ -264,10 +323,59 @@ export function createMeadowWildlife() {
           part(leg, 'sphere', fur, [0, -0.06, -0.065], [0.105, fore === 1 ? 0.16 : 0.09, 0.19]);
         }
       }
+    } else if (animal.kind === 'fox') {
+      part(root, 'sphere', fur, [0, 0.65, 0], [0.28, 0.29, 0.64]);
+      part(root, 'sphere', '#efe3c7', [0, 0.51, -0.37], [0.24, 0.25, 0.29]);
+      part(head, 'sphere', fur, [0, 0, 0], [0.27, 0.27, 0.3]);
+      part(head, 'cone', '#eee3ce', [0, -0.06, -0.31], [0.2, 0.47, 0.16], [-Math.PI / 2, 0, 0]);
+      part(head, 'sphere', '#322e32', [0, -0.06, -0.56], [0.055, 0.047, 0.055]);
+      part(tail, 'sphere', fur, [0, 0.07, 0.43], [0.24, 0.26, 0.63], [0.3, 0, 0]);
+      part(tail, 'sphere', '#f3e9d3', [0, -0.12, 0.96], [0.16, 0.17, 0.26], [0.3, 0, 0]);
+      for (const side of [-1, 1]) {
+        part(
+          head,
+          'cone',
+          fur,
+          [side * 0.17, 0.34, 0.04],
+          [0.15, 0.41, 0.12],
+          [0, 0, side * -0.16],
+        );
+        part(head, 'cone', '#4e3534', [side * 0.17, 0.34, -0.055], [0.08, 0.27, 0.025]);
+        part(head, 'sphere', '#332d2b', [side * 0.235, 0.035, -0.14], [0.033, 0.038, 0.04]);
+        for (const fore of [-1, 1]) {
+          const leg = pivot(root, side * 0.2, 0.51, fore * 0.4);
+          legs.push(leg);
+          part(leg, 'cylinder', '#5b3a30', [0, -0.22, 0], [0.07, 0.47, 0.08]);
+          part(leg, 'sphere', '#42332e', [0, -0.46, -0.045], [0.08, 0.065, 0.12]);
+        }
+      }
+    } else if (animal.kind === 'butterfly') {
+      part(root, 'sphere', '#403d49', [0, 0, 0], [0.036, 0.045, 0.16]);
+      for (const side of [-1, 1]) {
+        const wing = pivot(root, side * 0.02, 0, 0);
+        wings.push(wing);
+        part(
+          wing,
+          'sphere',
+          index % 2 ? '#eeb761' : '#92bdeb',
+          [side * 0.2, 0, -0.05],
+          [0.24, 0.019, 0.23],
+        );
+        part(wing, 'sphere', '#695a8f', [side * 0.14, 0, 0.18], [0.16, 0.018, 0.16]);
+        part(wing, 'sphere', '#ffedc5', [side * 0.23, 0.024, -0.08], [0.057, 0.012, 0.065]);
+      }
     } else {
       part(root, 'sphere', fur, [0, 0.28, 0], [0.18, 0.19, 0.3]);
       part(root, 'sphere', '#e5c795', [0, 0.24, -0.15], [0.15, 0.14, 0.14]);
-      part(root, 'sphere', '#326f82', [0, 0.3, 0.32], [0.11, 0.04, 0.22], [0.25, 0, 0]);
+      for (const feather of [-1, 0, 1])
+        part(
+          root,
+          'sphere',
+          '#326f82',
+          [feather * 0.06, 0.3, 0.35],
+          [0.046, 0.027, 0.28],
+          [0.25, feather * 0.18, 0],
+        );
       part(head, 'sphere', fur, [0, 0, 0], [0.15, 0.15, 0.16]);
       part(head, 'cone', '#dba05c', [0, -0.02, -0.18], [0.06, 0.18, 0.055], [-Math.PI / 2, 0, 0]);
       for (const side of [-1, 1]) {
@@ -278,7 +386,7 @@ export function createMeadowWildlife() {
         part(root, 'cylinder', '#af9470', [side * 0.06, 0.075, 0], [0.018, 0.15, 0.018]);
       }
     }
-    return { root, head, legs, wings };
+    return { root, head, legs, wings, tail };
   });
   const batches = (['sphere', 'cylinder', 'cone'] as const).map((shape) => {
     const batch = new THREE.InstancedMesh(
@@ -294,6 +402,19 @@ export function createMeadowWildlife() {
     group.add(batch);
     return { shape, batch };
   });
+  const markerGeometry = new THREE.RingGeometry(0.72, 0.81, 48);
+  const markerMaterial = new THREE.MeshBasicMaterial({
+    color: '#ffdf91',
+    transparent: true,
+    opacity: 0.68,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+  marker.name = 'wildlife-observation-marker';
+  marker.rotation.x = -Math.PI / 2;
+  marker.visible = false;
+  group.add(marker);
   let disposed = false,
     lastTime = 0,
     animationTime = 0;
@@ -310,6 +431,12 @@ export function createMeadowWildlife() {
     animationTime += dt;
     simulation.update(time, currentFrame);
     lastTime = time;
+    const subject = simulation.animals.find((animal) => animal.id === frame?.observingId);
+    marker.visible = !!subject && !subject.startled;
+    if (subject) {
+      marker.position.set(subject.x, getTerrainHeight(subject.x, subject.z) + 0.08, subject.z);
+      marker.scale.setScalar(subject.kind === 'deer' ? 1.45 : subject.kind === 'fox' ? 1.1 : 0.8);
+    }
     simulation.animals.forEach((animal, index) => {
       const rig = rigs[index],
         moving = Math.min(1, animal.speed / 3.5),
@@ -326,10 +453,14 @@ export function createMeadowWildlife() {
         animal.z,
       );
       rig.root.rotation.y = animal.heading;
-      const relaxedHead =
-        animal.kind === 'deer'
-          ? -0.48 + Math.sin(animationTime * 0.7 + animal.phase) * 0.22
-          : Math.sin(animationTime * 1.1 + animal.phase) * 0.12;
+      const grazing = animal.activity === 0 && animal.speed < 0.2;
+      const relaxedHead = grazing
+        ? (animal.kind === 'deer' ? -0.8 : -0.4) + Math.sin(animationTime * 3 + animal.phase) * 0.12
+        : Math.sin(animationTime * 1.1 + animal.phase) * 0.12;
+      const grooming = animal.kind === 'rabbit' && animal.activity === 1 && !animal.startled;
+      rig.root.rotation.x +=
+        ((grooming ? 0.33 : 0) - rig.root.rotation.x) * (1 - Math.exp(-dt * 4));
+      rig.tail.rotation.y = Math.sin(animationTime * 2 + animal.phase) * 0.26;
       rig.head.rotation.x +=
         (THREE.MathUtils.lerp(relaxedHead, 0.1, animal.alert) - rig.head.rotation.x) *
         (1 - Math.exp(-dt * 6));
@@ -345,7 +476,7 @@ export function createMeadowWildlife() {
           THREE.MathUtils.lerp(
             -0.18,
             Math.sin(animationTime * 17 + animal.phase) * 1.08,
-            animal.flight,
+            animal.kind === 'butterfly' ? 1 : animal.flight,
           );
       });
       rig.root.updateMatrixWorld(true);
@@ -359,6 +490,7 @@ export function createMeadowWildlife() {
   return {
     group,
     update,
+    observe: (): readonly WildlifeObservation[] => simulation.animals,
     dispose() {
       if (disposed) return;
       disposed = true;
@@ -367,6 +499,8 @@ export function createMeadowWildlife() {
       cylinder.dispose();
       cone.dispose();
       material.dispose();
+      markerGeometry.dispose();
+      markerMaterial.dispose();
       group.removeFromParent();
       group.clear();
     },

@@ -8,6 +8,7 @@ import {
   type RegionId,
 } from '../../game/adventure';
 import type { Exploration } from '../../game/exploration';
+import type { FieldProgress } from '../../game/fieldActivities';
 import type { DiscoveryProgress } from '../../game/discovery';
 import type { FlightStatus } from '../../game/flight';
 import type { RegionPlace } from '../../game/landmarks';
@@ -25,6 +26,7 @@ export interface DialogProps {
   adventure: Adventure;
   templeProgress: TempleProgress;
   discovery: DiscoveryProgress;
+  field: FieldProgress;
   today: string;
   flight: FlightStatus;
   closeModal(): void;

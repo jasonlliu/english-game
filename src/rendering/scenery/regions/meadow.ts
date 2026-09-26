@@ -1,14 +1,16 @@
 import * as THREE from 'three';
+import { createMeadowRace } from '../meadow/race';
 import { buildRegionScenery } from '../kit';
 import { buildTemple } from '../temple';
 import { buildMeadowExpansion } from '../meadow/landmarks';
+import { buildMeadowVillage } from '../meadow/village';
 import { createMeadowWildlife } from '../meadow/wildlife';
 import { createMeadowSecrets } from '../meadow/secrets';
 import type { RegionScenery } from '../types';
 export function createRegionScenery(): RegionScenery {
   const scenery = buildRegionScenery(
     'meadow',
-    ['#d8c9a3', '#8d947b', '#56787b', '#6c5140', '#ded5b2', '#729873'],
+    ['#ecd8b2', '#969b83', '#638a91', '#795e49', '#ead9b5', '#79996b'],
     (kit) => {
       const {
         box,
@@ -20,7 +22,6 @@ export function createRegionScenery(): RegionScenery {
         roof,
         arch,
         window,
-        house,
         fence,
         waterfall,
         animate,
@@ -31,7 +32,6 @@ export function createRegionScenery(): RegionScenery {
         trim,
         gold,
         leaves,
-        terracotta,
         white,
       } = kit;
       buildTemple(kit, (temple, templeWindow) => {
@@ -40,9 +40,7 @@ export function createRegionScenery(): RegionScenery {
         torus(temple, gold, 0, 11.3, 5.92, 1.0, 0.09);
         ball(temple, templeWindow, 0, 11.3, 5.94, 0.55, 0.55, 0.13);
       });
-      house(-36, 15, 5.6, 4.7, 3.65);
-      house(-25, 12, 4.65, 4.6, 3.45);
-      house(-31, 22, 5.4, 4.6, 3.55, terracotta);
+      buildMeadowVillage(kit);
       const mill = origin(-31, 6);
       cylinder(mill, plaster, 0, 5.2, 0, 1.6, 2.45, 10.4, 14);
       cone(mill, roofMat, 0, 11.45, 0, 2.3, 3.1);
@@ -64,8 +62,6 @@ export function createRegionScenery(): RegionScenery {
       animate(rotor, (time) => {
         rotor.rotation.z = time * 0.16;
       });
-      const farm = house(18, 25, 6.5, 5.5, 4.0, terracotta);
-      box(farm, wood, 0, 1.65, 2.87, 2.1, 3.3, 0.22);
       const field = origin(16, 16);
       box(field, wood, 0, 0.01, 0, 9, 0.09, 5.2);
       for (let row = 0; row < 7; row++)
@@ -90,26 +86,33 @@ export function createRegionScenery(): RegionScenery {
     },
   );
   let wildlife: ReturnType<typeof createMeadowWildlife> | undefined;
+  let race: ReturnType<typeof createMeadowRace> | undefined;
   let secrets: ReturnType<typeof createMeadowSecrets> | undefined;
   try {
+    race = createMeadowRace();
+    scenery.group.add(race.group);
     wildlife = createMeadowWildlife();
     scenery.group.add(wildlife.group);
     secrets = createMeadowSecrets();
     scenery.group.add(secrets.group);
     return {
       group: scenery.group,
+      wildlife: () => wildlife?.observe() ?? [],
       update(time, visited, frame) {
         scenery.update(time, visited);
+        race?.update(time, frame);
         wildlife?.update(time, frame);
         secrets?.update(time, frame);
       },
       dispose() {
+        race?.dispose();
         secrets?.dispose();
         wildlife?.dispose();
         scenery.dispose();
       },
     };
   } catch (error) {
+    race?.dispose();
     secrets?.dispose();
     wildlife?.dispose();
     scenery.dispose();
