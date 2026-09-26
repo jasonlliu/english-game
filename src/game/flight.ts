@@ -1,4 +1,4 @@
-import type { PetId, RegionId } from './adventure';
+import type { RegionId } from './adventure';
 import { REGION_VOLUMES, distanceToVolume } from './landmarks';
 import {
   LAKE,
@@ -26,9 +26,7 @@ export const FLIGHT_SPEED = 12;
 export const FLIGHT_VERTICAL_SPEED = 7;
 const CLEARANCE = 3;
 
-export function canPetFly(id: PetId | null | undefined, stage: number): boolean {
-  return id === 'lumi' || (id === 'ember' && stage === 3);
-}
+export { canPetFly } from './flightEligibility';
 
 function boundedPoint(point: WorldPoint, region: RegionId): WorldPoint {
   const p = clampToWorld(point, region);

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { getPetStage, getTodayKey, type Mode } from '../game';
 import { getUnlockedRegions, PETS, REGIONS, type PetId, type RegionId } from '../game/adventure';
-import { canPetFly, type FlightStatus } from '../game/flight';
+import type { FlightStatus } from '../game/flight';
+import { canPetFly } from '../game/flightEligibility';
+import { getDiscoveryObjective } from '../game/discovery';
 import { REGION_PLACES, TEMPLE_ENTRANCE, type RegionPlace } from '../game/landmarks';
 import { TEMPLE_THEMES } from '../game/temple';
-import { SPAWN_POSITION, type WorldPoint, type WorldZone } from '../game/world';
+import { SPAWN_POSITION, type WorldPoint, type WorldZone } from '../game/worldLayout';
 import { useGameAudio } from './useGameAudio';
 import { useGameSession } from './useGameSession';
 import { createWorldTelemetry } from './worldTelemetry';
@@ -14,7 +16,16 @@ const uniqueId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}
 
 export function useAdventureController() {
   const { snapshot, session } = useGameSession();
-  const { mode, progress, expedition, adventure, templeProgress, today, storageWarning } = snapshot;
+  const {
+    mode,
+    progress,
+    expedition,
+    adventure,
+    templeProgress,
+    discovery,
+    today,
+    storageWarning,
+  } = snapshot;
   const [insideTemple, setInsideTemple] = useState(false);
   const [nearTemple, setNearTemple] = useState(false);
   const [spawnPoint, setSpawnPoint] = useState<WorldPoint | undefined>();
@@ -70,6 +81,9 @@ export function useAdventureController() {
   const readyToCapture = !owned && seals.length === 3;
   const doneToday = mode === 'real' && progress.completedDates.includes(today);
   const isModal = panel !== null || reward !== null;
+  const discoveryContext = useRef({ isModal, insideTemple });
+  discoveryContext.current = { isModal, insideTemple };
+  const discoveryObjective = getDiscoveryObjective(discovery);
   const audio = useGameAudio({
     region: regionId,
     temple: insideTemple,
@@ -162,6 +176,22 @@ export function useAdventureController() {
           : `找到${place.sealName} ${result.count} / 3`,
       );
     }
+  }
+  function investigateDiscovery(id: string, position: WorldPoint) {
+    const current = session.getSnapshot();
+    // This callback belongs to the scene that received it, even after a mode/region change.
+    if (current.mode !== mode || current.adventure.currentRegion !== regionId) return;
+    if (discoveryContext.current.isModal || discoveryContext.current.insideTemple) return;
+    const currentFlight = telemetry.flight.getSnapshot();
+    if (currentFlight.flying || currentFlight.landing) {
+      notify('先安全降落，再靠近查看线索。');
+      return;
+    }
+    const result = session.investigateDiscovery(id, position, regionId);
+    if (result.feedback) playSound(result.feedback === 'bell-wrong' ? 'mistake' : 'seal');
+    else if (result.changed) playSound(result.reward ? 'reward' : 'collect');
+    if (result.changed && result.reward) setPetExcited((n) => n + 1);
+    notify(result.message);
   }
   function unlockTreasure() {
     const result = session.openTreasure();
@@ -350,6 +380,9 @@ export function useAdventureController() {
     expedition,
     adventure,
     templeProgress,
+    discovery,
+    discoveryObjective,
+    today,
     insideTemple,
     nearTemple,
     spawnPoint,
@@ -398,6 +431,7 @@ export function useAdventureController() {
     startCheckin,
     checkin,
     collect,
+    investigateDiscovery,
     unlockTreasure,
     newExpedition,
     resetDemo,

@@ -1,0 +1,67 @@
+.discovery-prompt {
+  position: absolute;
+  bottom: 174px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(360px, calc(100% - 32px));
+  z-index: 5;
+}
+.discovery-prompt button,
+.discovery-prompt p {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  padding: 12px 18px;
+  border: 1px solid #f0e6c58c;
+  border-radius: 18px;
+  background: #173e39ee;
+  box-shadow: 0 6px 24px #143b3833;
+  color: #fff6d8;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+.discovery-prompt button {
+  cursor: pointer;
+}
+.discovery-prompt button:focus-visible {
+  outline: 3px solid #e5c66f;
+  outline-offset: 3px;
+}
+.discovery-prompt small {
+  display: block;
+  color: #b8d8c6;
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+.discovery-prompt kbd {
+  padding: 5px 8px;
+  border: 1px solid #b8d8c677;
+  border-radius: 7px;
+}
+.discovery-prompt p {
+  font-size: 11px;
+  pointer-events: none;
+}
+.discovery-prompt p span {
+  color: #ffe297;
+  font-size: 20px;
+}
+@media (max-width: 720px) {
+  .discovery-prompt {
+    bottom: 320px;
+  }
+  .discovery-prompt button,
+  .discovery-prompt p {
+    padding: 9px 13px;
+  }
+}
+@media (max-height: 480px) {
+  .discovery-prompt {
+    top: 90px;
+    bottom: auto;
+    max-width: 260px;
+  }
+}

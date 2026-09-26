@@ -9,6 +9,7 @@ type DialogModule = { default: ComponentType<DialogProps> };
 const registry: Record<DialogName, () => Promise<DialogModule>> = {
   checkin: () => import('./CheckinDialog'),
   journal: () => import('./CompanionJournal'),
+  expedition: () => import('./ExpeditionJournal'),
   map: () => import('./TravelAtlas'),
   guide: () => import('./GuideDialog'),
   capture: () => import('./CaptureDialog'),

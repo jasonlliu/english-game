@@ -1,4 +1,4 @@
-import { FlaskConical, Map, PawPrint, RotateCcw, Sparkles, Sun } from 'lucide-react';
+import { Compass, FlaskConical, Map, PawPrint, RotateCcw, Sparkles, Sun } from 'lucide-react';
 import { type CSSProperties } from 'react';
 import type { AdventureController } from '../../app/useAdventureController';
 import { IndoorScene, OutdoorScene } from '../../loading/SceneHost';
@@ -24,6 +24,8 @@ export default function GameShell({ game }: { game: AdventureController }) {
     expedition,
     adventure,
     templeProgress,
+    discovery,
+    today,
     insideTemple,
     spawnPoint,
     travelPoint,
@@ -55,6 +57,7 @@ export default function GameShell({ game }: { game: AdventureController }) {
     changeMode,
     checkin,
     collect,
+    investigateDiscovery,
     newExpedition,
     resetDemo,
     simulateTomorrow,
@@ -90,6 +93,9 @@ export default function GameShell({ game }: { game: AdventureController }) {
           <OutdoorScene
             key={sceneId}
             onReady={reportSceneReady}
+            discovery={discovery}
+            today={today}
+            onDiscoveryInteract={investigateDiscovery}
             region={regionId}
             spawnPoint={spawnPoint}
             travelPoint={travelPoint}
@@ -157,6 +163,13 @@ export default function GameShell({ game }: { game: AdventureController }) {
         </span>
       </div>
       <div className="world-tools" inert={isModal}>
+        <button
+          aria-label="原野探险手记"
+          title="原野探险手记"
+          onClick={() => setPanel('expedition')}
+        >
+          <Compass size={18} />
+        </button>
         <button aria-label="我的伙伴" onClick={() => setPanel('journal')}>
           <PawPrint size={18} />
         </button>
@@ -202,6 +215,8 @@ export default function GameShell({ game }: { game: AdventureController }) {
             expedition={expedition}
             adventure={adventure}
             templeProgress={templeProgress}
+            discovery={discovery}
+            today={today}
             flight={flight}
             closeModal={closeModal}
             setPanel={setPanel}

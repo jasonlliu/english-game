@@ -1,0 +1,308 @@
+.quest-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+}
+.quest-heading .quest-toggle {
+  min-width: 0;
+}
+.quest-notebook {
+  flex: 0 0 38px;
+  height: 38px;
+  border: 1px solid #8a967b35;
+  border-radius: 9px;
+  background: #fdf8e783;
+  color: #637859;
+  font-size: 11px;
+}
+.quest-notebook:hover {
+  background: #fffbea;
+}
+.secondary-expedition {
+  margin-top: 17px;
+  padding-top: 13px;
+  border-top: 1px dashed #8997784a;
+}
+.secondary-expedition h3 {
+  font-size: 11px;
+  font-weight: 500;
+  color: #7a866e;
+}
+.secondary-expedition .quest-action {
+  background: #7c92781a;
+  color: #637659;
+  box-shadow: none;
+}
+.expedition-modal {
+  max-width: 740px;
+}
+.expedition-journal .journal-intro {
+  margin-top: 8px;
+  color: #859075;
+}
+.discovery-current {
+  margin-top: 27px;
+  padding: 20px 22px;
+  border: 1px solid #9aa68843;
+  border-radius: 12px;
+  background: #e4e9d946;
+}
+.discovery-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #708168;
+  font-size: 12px;
+}
+.discovery-section-heading h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+}
+.discovery-section-heading > small {
+  margin-left: auto;
+  color: #97a088;
+  font-size: 10px;
+}
+.discovery-current progress {
+  display: block;
+  width: 100%;
+  height: 3px;
+  margin: 13px 0 18px;
+  accent-color: #819273;
+  border: none;
+  border-radius: 2px;
+  background: #83967420;
+}
+.discovery-current progress::-webkit-progress-bar {
+  background: #83967420;
+}
+.discovery-current progress::-webkit-progress-value {
+  background: #819273;
+}
+.discovery-current > h3 {
+  margin: 0;
+  color: #52694e;
+  font-size: 18px;
+  font-family: 'Songti SC', 'STSong', serif;
+}
+.expedition-journal p {
+  font-size: 13px;
+  line-height: 1.9;
+  color: #7c866f;
+}
+.discovery-current > p {
+  margin-top: 10px;
+}
+.expedition-journal .discovery-away {
+  font-size: 11px;
+  color: #9b957b;
+}
+.discovery-text-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 0;
+  background: none;
+  color: #637c58;
+  font-size: 12px;
+  text-align: left;
+}
+.discovery-text-action:hover {
+  color: #355e42;
+}
+.discovery-pages {
+  margin-top: 29px;
+}
+.discovery-pages ol {
+  list-style: none;
+  padding: 0;
+  margin: 5px 0 0;
+}
+.discovery-pages li {
+  display: flex;
+  gap: 17px;
+  padding: 19px 0;
+  border-bottom: 1px solid #929d7f25;
+}
+.discovery-page-number {
+  padding-top: 2px;
+  color: #a5ae93;
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 20px;
+}
+.discovery-pages h4 {
+  margin: 0;
+  font-weight: 500;
+  font-size: 14px;
+  color: #607456;
+}
+.discovery-pages li p {
+  margin-top: 6px;
+}
+.discovery-song {
+  margin-top: 17px;
+  padding: 17px 19px;
+  border-left: 2px solid #afba94;
+  background: #d8dfc52e;
+}
+.discovery-song .small-kicker {
+  font-size: 9px;
+}
+.discovery-song > p {
+  margin-top: 5px;
+}
+.discovery-bells,
+.discovery-bells > span,
+.discovery-bells b {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.discovery-bells {
+  margin: 13px 0 10px;
+}
+.discovery-bells b {
+  gap: 5px;
+  font-weight: 500;
+  color: #87927a;
+  font-size: 13px;
+}
+.discovery-bells i {
+  color: #a1ab90;
+  font-style: normal;
+}
+.discovery-bells .is-rung b {
+  color: #587c4d;
+}
+.discovery-song > small,
+.discovery-daily-note {
+  color: #919b81;
+  font-size: 10px;
+  line-height: 1.8;
+}
+.discovery-keepsakes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 27px;
+}
+.discovery-keepsakes > section {
+  padding: 18px;
+  border: 1px solid #a5af9135;
+  border-radius: 10px;
+}
+.discovery-keepsakes p {
+  font-size: 12px;
+  margin-top: 12px;
+}
+.discovery-empty {
+  margin-top: 13px;
+}
+.discovery-artifact {
+  padding-top: 17px;
+  text-align: center;
+  color: #a5a16a;
+}
+.discovery-artifact > strong {
+  display: block;
+  margin-top: 9px;
+  font-family: 'Songti SC', 'STSong', serif;
+  color: #647854;
+  font-size: 18px;
+}
+.discovery-artifact > small {
+  font-size: 9px;
+  color: #9ca38e;
+}
+.discovery-stamped {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.discovery-stamp-count {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 15px 0 11px;
+  padding: 9px 12px;
+  border: 1px dashed #aab49578;
+  color: #81916d;
+  font-size: 11px;
+}
+.discovery-stamp-count b {
+  font-family: Georgia, serif;
+  font-size: 21px;
+  font-weight: 400;
+}
+.discovery-stamp-count small {
+  font-size: 10px;
+}
+.discovery-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-top: 27px;
+}
+.discovery-footer .primary {
+  width: auto;
+  margin: 0;
+  min-width: 142px;
+}
+.nature-route-note .discovery-text-action {
+  display: flex;
+  font-size: 11px;
+}
+@media (max-width: 600px) {
+  .quest-heading {
+    gap: 5px;
+  }
+  .quest-notebook {
+    flex-basis: 32px;
+    height: 36px;
+    font-size: 10px;
+  }
+  .adventure-objective:not(.is-collapsed) {
+    display: flex;
+    flex-direction: column;
+    max-height: max(125px, calc(100dvh - 550px));
+  }
+  .adventure-objective #quest-details {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .expedition-modal {
+    padding: 32px 20px 23px;
+  }
+  .expedition-journal h2 {
+    font-size: 25px;
+  }
+  .expedition-journal p {
+    font-size: 12px;
+  }
+  .discovery-current {
+    margin-top: 22px;
+    padding: 16px;
+  }
+  .discovery-current > h3 {
+    font-size: 17px;
+  }
+  .discovery-pages li {
+    gap: 12px;
+    padding: 15px 0;
+  }
+  .discovery-keepsakes {
+    grid-template-columns: 1fr;
+  }
+  .discovery-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .discovery-footer .primary {
+    min-width: 125px;
+  }
+}

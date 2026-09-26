@@ -3,6 +3,7 @@ import { buildRegionScenery } from '../kit';
 import { buildTemple } from '../temple';
 import { buildMeadowExpansion } from '../meadow/landmarks';
 import { createMeadowWildlife } from '../meadow/wildlife';
+import { createMeadowSecrets } from '../meadow/secrets';
 import type { RegionScenery } from '../types';
 export function createRegionScenery(): RegionScenery {
   const scenery = buildRegionScenery(
@@ -88,21 +89,29 @@ export function createRegionScenery(): RegionScenery {
       buildMeadowExpansion(kit);
     },
   );
+  let wildlife: ReturnType<typeof createMeadowWildlife> | undefined;
+  let secrets: ReturnType<typeof createMeadowSecrets> | undefined;
   try {
-    const wildlife = createMeadowWildlife();
+    wildlife = createMeadowWildlife();
     scenery.group.add(wildlife.group);
+    secrets = createMeadowSecrets();
+    scenery.group.add(secrets.group);
     return {
       group: scenery.group,
       update(time, visited, frame) {
         scenery.update(time, visited);
-        wildlife.update(time, frame);
+        wildlife?.update(time, frame);
+        secrets?.update(time, frame);
       },
       dispose() {
-        wildlife.dispose();
+        secrets?.dispose();
+        wildlife?.dispose();
         scenery.dispose();
       },
     };
   } catch (error) {
+    secrets?.dispose();
+    wildlife?.dispose();
     scenery.dispose();
     throw error;
   }

@@ -5,6 +5,7 @@ import type { PetId } from '../../game/adventure';
 const labels: Record<Exclude<Panel, null>, string> = {
   checkin: '确认今日打卡',
   journal: '我的伙伴',
+  expedition: '原野探险手记',
   map: '旅行地图',
   capture: '建立羁绊',
   treasure: '发现宝藏',
@@ -69,7 +70,7 @@ export default function ModalShell({
       }}
     >
       <div
-        className={`modal ${rewardLayout ? 'reward-modal' : ''} ${panel === 'map' ? 'travel-modal' : ''}`}
+        className={`modal ${rewardLayout ? 'reward-modal' : ''} ${panel === 'map' ? 'travel-modal' : ''} ${panel === 'expedition' ? 'expedition-modal' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label={reward ? '冒险奖励' : panel ? labels[panel] : '冒险'}

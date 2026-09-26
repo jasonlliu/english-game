@@ -30,6 +30,7 @@ export default function TravelAtlas(props: DialogProps) {
     simulateTomorrow,
     travelTo,
     travelToPlace,
+    setPanel,
   } = getDialogModel(props);
   return (
     <div className="travel-atlas">
@@ -115,6 +116,9 @@ export default function TravelAtlas(props: DialogProps) {
           <p className="nature-route-note">
             原野环游：鹿溪营地 → 晴风花海 → 风铃山丘。放慢脚步靠近动物，奔跑会惊动它们。
             点击下方景点即可沿小路前往，途中也可以随时自由探索。
+            <button className="discovery-text-action" onClick={() => setPanel('expedition')}>
+              失落的风铃 · 翻开探险手记 <ArrowRight size={14} />
+            </button>
           </p>
         )}
         <div className="map-destinations">

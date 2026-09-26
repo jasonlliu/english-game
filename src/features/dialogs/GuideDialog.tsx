@@ -11,11 +11,24 @@ import {
 import { getDialogModel, type DialogProps } from './types';
 
 export default function GuideDialog(props: DialogProps) {
-  const { closeModal } = getDialogModel(props);
+  const { closeModal, setPanel } = getDialogModel(props);
   return (
     <div className="guide">
       <div className="eyebrow">YOUR JOURNEY STARTS HERE</div>
       <h2>你是冒险者，伙伴在身旁。</h2>
+      <div className="guide-item">
+        <Compass />
+        <div>
+          <b>失落的风铃，藏在日常风景里</b>
+          <p>
+            从原野旧路牌上的信开始，沿营地手札与小鹿留下的痕迹慢慢寻找。走近线索按 E
+            或点击查看，探险手记会记下已经发现的故事。读信后还可寻找每天换位置的小宝匣，收好一枚旅途邮票。
+          </p>
+          <button className="discovery-text-action" onClick={() => setPanel('expedition')}>
+            翻开原野探险手记 <ArrowRight size={14} />
+          </button>
+        </div>
+      </div>
       <div className="guide-item">
         <Navigation />
         <div>

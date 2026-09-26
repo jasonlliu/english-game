@@ -3,7 +3,7 @@ import { useSyncExternalStore } from 'react';
 import type { AdventureController } from '../../app/useAdventureController';
 import WorldMap from '../../features/hud/WorldMap';
 import { REGION_PLACES } from '../../game/landmarks';
-import { WORLD_ZONES } from '../../game/world';
+import { WORLD_ZONES } from '../../game/worldLayout';
 
 import { waypointNames, zoneKeys } from '../../app/presentation';
 

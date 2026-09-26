@@ -7,7 +7,7 @@ import {
   getRegionTrails,
   getWorldBounds,
   type WorldPoint,
-} from '../../game/world';
+} from '../../game/worldLayout';
 export default function WorldMap({
   regionId,
   seals,

@@ -6,24 +6,27 @@
 
 ## 状态边界
 
-`getSnapshot()` 返回稳定快照：`mode`、`progress`、`expedition`、`adventure`、`templeProgress`、`today`、`storageWarning`。
+`getSnapshot()` 返回稳定快照：`mode`、`progress`、`expedition`、`adventure`、`templeProgress`、`discovery`、`today`、`storageWarning`。
 未改变的数据保留对象引用；一次命令在全部变化完成后通知订阅者一次。调用方应把快照视为只读数据，不直接修改数组或嵌套字段。
 
-| 领域             | 内容                         | localStorage key（`{mode}` 为 `real` / `demo`） |
-| ---------------- | ---------------------------- | ----------------------------------------------- |
-| `progress.ts`    | 打卡收据、日期、XP、进化     | `rune-island.progress.{mode}.v1`                |
-| `exploration.ts` | 原野光晶、宝箱、星砂         | `rune-island.exploration.{mode}.v1`             |
-| `adventure.ts`   | 到访日、地区、伙伴、地区符印 | `rune-island.adventure.{mode}.v1`               |
-| `temple.ts`      | 六地神庙遗物                 | `rune-island.temple.{mode}.v1`                  |
+| 领域             | 内容                                   | localStorage key（`{mode}` 为 `real` / `demo`） |
+| ---------------- | -------------------------------------- | ----------------------------------------------- |
+| `progress.ts`    | 打卡收据、日期、XP、进化               | `rune-island.progress.{mode}.v1`                |
+| `exploration.ts` | 原野光晶、宝箱、星砂                   | `rune-island.exploration.{mode}.v1`             |
+| `adventure.ts`   | 到访日、地区、伙伴、地区符印           | `rune-island.adventure.{mode}.v1`               |
+| `temple.ts`      | 六地神庙遗物                           | `rune-island.temple.{mode}.v1`                  |
+| `discovery.ts`   | 原野线索、风铃谜题、永久收藏、每日邮票 | `rune-island.discovery.{mode}.v1`               |
 
-当前记录均为 `version: 1`。旧 `load*` / `save*` 函数保持兼容；交互界面统一通过 session，不再组合四组 loader、writer 或临时存档 ref。
+当前记录均为 `version: 1`。旧 `load*` / `save*` 函数保持兼容；交互界面统一通过 session，不再组合五组 loader、writer 或临时存档 ref。
 角色位置、飞行遥测、镜头、弹窗、路线和提示不属于持久游戏快照。
 
 ## 命令与同步
 
-`checkin`、`collect`、`openTreasure`、`newExpedition`、`resetDemo`、`simulateTomorrow`、`enterRegion`、`capturePet`、`choosePet`、`claimTemple` 委托已有纯规则。
+`checkin`、`collect`、`openTreasure`、`newExpedition`、`resetDemo`、`simulateTomorrow`、`enterRegion`、`capturePet`、`choosePet`、`claimTemple`、`investigateDiscovery` 委托已有纯规则。
 `collect(id, expectedRegion?)` 根据当前地区选择原野光晶或地区符印。场景应传入事件所属地区；若外部存档已切区，旧场景事件会被拒绝。奖励提示应检查命令返回的成功标志与地区，而不是依赖点击前的界面状态。
 `claimTemple(region)` 只允许当前已解锁地区；光印机关是否完成由神庙界面负责验证。
+
+`investigateDiscovery(id, position, expectedRegion)` 验证事件地区、有限坐标、3.5 单位交互距离与线索前置条件。永久藏品和每日邮票属于独立领域，不发放打卡 XP，也不随 `newExpedition` 清除。错误铃只重置尚未完成的旋律；完成的机关不能被重置。日期收据最多保留 366 条，并拒绝早于保留窗口的重复补领。
 
 每次命令先读取最新干净存档，再执行规则；同步连续操作不必等待下一次 React 渲染或 `storage` 事件。
 `refresh` / `load` 不改变等价数据，不反复保存同日到访；日期采用本地日历日。

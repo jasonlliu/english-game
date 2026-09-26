@@ -5,6 +5,7 @@ import type { WorldZone } from '../game/world';
 export type Panel =
   | 'checkin'
   | 'journal'
+  | 'expedition'
   | 'guide'
   | 'treasure'
   | 'map'

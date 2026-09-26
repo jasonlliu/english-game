@@ -1,5 +1,5 @@
 import type { FlightStatus } from '../game/flight';
-import { SPAWN_POSITION } from '../game/world';
+import { SPAWN_POSITION } from '../game/worldLayout';
 export interface WorldPosition {
   x: number;
   z: number;

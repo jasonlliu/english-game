@@ -42,3 +42,38 @@ test('portrait UI imports its renderer only through a dynamic module boundary', 
     );
   }
 });
+
+test('HUD map data and flight eligibility do not eagerly import world simulation', () => {
+  const files = [
+    'app/useAdventureController.ts',
+    'app/worldTelemetry.ts',
+    'features/hud/WorldMap.tsx',
+    'features/hud/MinimapHud.tsx',
+    'game/worldLayout.ts',
+    'game/flightEligibility.ts',
+  ];
+  for (const file of files) {
+    const source = ts.createSourceFile(
+      file,
+      readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8'),
+      ts.ScriptTarget.Latest,
+      true,
+    );
+    for (const statement of source.statements) {
+      if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier))
+        continue;
+      const clause = statement.importClause;
+      if (clause?.isTypeOnly) continue;
+      if (
+        clause?.namedBindings &&
+        ts.isNamedImports(clause.namedBindings) &&
+        clause.namedBindings.elements.every((item) => item.isTypeOnly)
+      )
+        continue;
+      assert(
+        !/(\/world|\/flight)$|rendering|three/.test(statement.moduleSpecifier.text),
+        `${file} eagerly imports world simulation`,
+      );
+    }
+  }
+});

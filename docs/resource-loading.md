@@ -5,6 +5,7 @@
 ## 现有加载策略
 
 - HTML 静态入口只包含 React、存档/规则、HUD 与轻量加载器。Three.js 和世界控制器经动态边界加载。
+- `worldLayout.ts` 提供小地图所需坐标与边界，`flightEligibility.ts` 提供伙伴飞行资格；HUD 不静态导入 `world.ts` / `flight.ts` 的树木生成、寻路和飞行模拟。原野寻秘模型跟随 meadow 分包，长篇手记跟随弹窗加载。
 - 首次进入只准备当前地区；六区景观分别输出独立 chunk。旅行地图卡片 hover/focus 时预取目标地区，神庙入口有意图预取，不预取所有地区。
 - 地图、图鉴、打卡、奖励、安抚等弹窗在打开时加载。神庙内部代码在准备进入时加载。
 - `createModuleLoader` 缓存已加载的 JavaScript 模块，合并并发请求，失败不留永久失败缓存。`AsyncView` 忽略已取消界面的旧结果，提供重试与刷新入口。

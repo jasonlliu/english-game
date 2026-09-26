@@ -39,6 +39,15 @@ import {
   TEMPLE_STORAGE_KEYS,
   type TempleProgress,
 } from './temple';
+import {
+  createDiscoveryProgress,
+  DISCOVERY_STORAGE_KEYS,
+  investigateDiscovery as investigateDiscoverySite,
+  sanitizeDiscoveryProgress,
+  type DiscoveryProgress,
+  type DiscoveryResult,
+} from './discovery';
+import type { WorldPoint } from './world';
 
 /** The session needs only these two methods; browser Storage and test stores both fit. */
 export interface GameStorage {
@@ -52,6 +61,7 @@ export interface GameSnapshot {
   readonly expedition: Exploration;
   readonly adventure: Adventure;
   readonly templeProgress: TempleProgress;
+  readonly discovery: DiscoveryProgress;
   readonly today: string;
   readonly storageWarning: boolean;
 }
@@ -84,6 +94,7 @@ export interface GameSession {
   capturePet(id: PetId): { captured: boolean; state: Adventure };
   choosePet(id: PetId | null): { chosen: boolean; state: Adventure };
   claimTemple(region: RegionId): { completed: boolean; state: TempleProgress };
+  investigateDiscovery(id: string, position: WorldPoint, expectedRegion: RegionId): DiscoveryResult;
 }
 
 const keysByStore = {
@@ -91,6 +102,7 @@ const keysByStore = {
   expedition: EXPLORATION_STORAGE_KEYS,
   adventure: ADVENTURE_STORAGE_KEYS,
   templeProgress: TEMPLE_STORAGE_KEYS,
+  discovery: DISCOVERY_STORAGE_KEYS,
 } as const;
 type StoreName = keyof typeof keysByStore;
 const storeNames = Object.keys(keysByStore) as StoreName[];
@@ -111,6 +123,7 @@ interface Bundle {
   expedition: Entry<Exploration>;
   adventure: Entry<Adventure>;
   templeProgress: Entry<TempleProgress>;
+  discovery: Entry<DiscoveryProgress>;
 }
 const entry = <T>(value: T): Entry<T> => ({
   value,
@@ -144,6 +157,7 @@ export function createGameSession(options: GameSessionOptions = {}): GameSession
         expedition: entry(createExploration(targetMode)),
         adventure: entry(createAdventure(targetMode)),
         templeProgress: entry(createTempleProgress(targetMode)),
+        discovery: entry(createDiscoveryProgress(targetMode)),
       };
       bundles.set(targetMode, bundle);
     }
@@ -168,6 +182,7 @@ export function createGameSession(options: GameSessionOptions = {}): GameSession
       expedition: bundle.expedition.value,
       adventure: bundle.adventure.value,
       templeProgress: bundle.templeProgress.value,
+      discovery: bundle.discovery.value,
       today,
       storageWarning,
     };
@@ -239,6 +254,9 @@ export function createGameSession(options: GameSessionOptions = {}): GameSession
     );
     read(bundle.templeProgress, TEMPLE_STORAGE_KEYS[mode], (value) =>
       sanitizeTempleProgress(value, mode),
+    );
+    read(bundle.discovery, DISCOVERY_STORAGE_KEYS[mode], (value) =>
+      sanitizeDiscoveryProgress(value, mode),
     );
     // Migration and today's arrival are real changes; another same-day refresh is a no-op.
     replace(
@@ -349,6 +367,7 @@ export function createGameSession(options: GameSessionOptions = {}): GameSession
         replace(bundle.progress, progress, true);
         replace(bundle.expedition, createExploration('demo'), true);
         replace(bundle.templeProgress, createTempleProgress('demo'), true);
+        replace(bundle.discovery, createDiscoveryProgress('demo'), true);
         replace(
           bundle.adventure,
           visitAdventure(createAdventure('demo', progress), progress, today),
@@ -396,6 +415,26 @@ export function createGameSession(options: GameSessionOptions = {}): GameSession
         const result = completeTemple(bundle.templeProgress.value, region);
         replace(bundle.templeProgress, result.state, true);
         return { ...result, state: bundle.templeProgress.value };
+      });
+    },
+    investigateDiscovery(id, position, expectedRegion) {
+      return transact((bundle) => {
+        const region = bundle.adventure.value.currentRegion;
+        if (region !== expectedRegion)
+          return {
+            state: bundle.discovery.value,
+            changed: false,
+            message: '你已经前往另一片地区，请在当前场景重新调查。',
+          };
+        const result = investigateDiscoverySite(
+          bundle.discovery.value,
+          id,
+          position,
+          today,
+          region,
+        );
+        replace(bundle.discovery, result.state, true);
+        return { ...result, state: bundle.discovery.value };
       });
     },
   };
