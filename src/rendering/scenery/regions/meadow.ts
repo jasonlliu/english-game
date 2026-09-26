@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { buildRegionScenery } from '../kit';
 import { buildTemple } from '../temple';
+import { buildMeadowExpansion } from '../meadow/landmarks';
+import { createMeadowWildlife } from '../meadow/wildlife';
 import type { RegionScenery } from '../types';
 export function createRegionScenery(): RegionScenery {
-  return buildRegionScenery(
+  const scenery = buildRegionScenery(
     'meadow',
     ['#d8c9a3', '#8d947b', '#56787b', '#6c5140', '#ded5b2', '#729873'],
     (kit) => {
@@ -83,6 +85,25 @@ export function createRegionScenery(): RegionScenery {
       box(bridge, stone, 0, 15.0, 0, 24.2, 0.65, 3.4);
       for (const side of [-1, 1]) box(bridge, stone, side * 11.3, 7, 0, 1.4, 14, 2.8);
       for (let i = 0; i < 13; i++) box(bridge, trim, -11.6 + i * 1.93, 15.7, 1.55, 0.16, 1.1, 0.14);
+      buildMeadowExpansion(kit);
     },
   );
+  try {
+    const wildlife = createMeadowWildlife();
+    scenery.group.add(wildlife.group);
+    return {
+      group: scenery.group,
+      update(time, visited, frame) {
+        scenery.update(time, visited);
+        wildlife.update(time, frame);
+      },
+      dispose() {
+        wildlife.dispose();
+        scenery.dispose();
+      },
+    };
+  } catch (error) {
+    scenery.dispose();
+    throw error;
+  }
 }

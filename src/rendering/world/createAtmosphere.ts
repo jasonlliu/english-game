@@ -99,7 +99,7 @@ export function createAtmosphere(context: WorldRenderContext) {
         i,
         x,
         peak * edge + Math.sin(x * 0.22 + localZ * 0.09) * edge * 2,
-        localZ - 109 - layer * 37,
+        localZ - (region === 'meadow' ? 150 : 109) - layer * 37,
       );
     }
     ridge.computeVertexNormals();
@@ -123,9 +123,9 @@ export function createAtmosphere(context: WorldRenderContext) {
       lobe = i % 5;
     const angle = group * 2.399;
     matrixDummy.position.set(
-      Math.cos(angle) * (75 + group * 2) + (lobe - 2) * 4.5,
+      Math.cos(angle) * ((region === 'meadow' ? 108 : 75) + group * 2) + (lobe - 2) * 4.5,
       37 + (group % 4) * 4 + Math.sin(lobe) * 1.7,
-      Math.sin(angle) * (95 + group * 2) - 15,
+      Math.sin(angle) * ((region === 'meadow' ? 128 : 95) + group * 2) - 15,
     );
     matrixDummy.scale.set(6 + random() * 5, 2.3 + random() * 2.5, 3.5 + random() * 4);
     matrixDummy.rotation.set(0, random(), 0);

@@ -3,7 +3,9 @@ import { getTerrainHeight, lakeDistance } from '../../game/world';
 import type { WorldRenderContext } from './context';
 export function createTerrain(context: WorldRenderContext) {
   const { region, theme, scene, TRAILS, keep, mat, mesh } = context;
-  const terrainGeometry = keep(new THREE.PlaneGeometry(224, 224, 224, 224));
+  // Leave a broad apron beyond the playable edge so distant views never reveal a void.
+  const terrainSize = region === 'meadow' ? 286 : 224;
+  const terrainGeometry = keep(new THREE.PlaneGeometry(terrainSize, terrainSize, 224, 224));
   terrainGeometry.rotateX(-Math.PI / 2);
   const terrainPositions = terrainGeometry.attributes.position;
   const groundColors: number[] = [];

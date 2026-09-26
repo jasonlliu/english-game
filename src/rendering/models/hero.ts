@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { modelKit } from './modelKit';
+import { readLocomotion, sampleFootstep, solveLeg } from './locomotion';
 import type { ModelRig, Point } from './types';
 /** Original six-head-tall sky ranger; the scene owns world position and rotation. */
 export function createHero(): ModelRig {
@@ -104,7 +105,7 @@ export function createHero(): ModelRig {
         [0, 0, z],
       );
     }
-    profile(rig, dark, [
+    const hipShell = profile(rig, dark, [
       [1.34, 0.23, 0.125, 0.015],
       [1.44, 0.26, 0.146, 0.012],
       [1.58, 0.235, 0.138, 0],
@@ -421,10 +422,12 @@ export function createHero(): ModelRig {
     ribbon(0.06, 0.47, 0.075);
     const legPivots: THREE.Group[] = [];
     const knees: THREE.Group[] = [];
+    const ankles: THREE.Group[] = [];
     const armPivots: THREE.Group[] = [];
     const elbows: THREE.Group[] = [];
     for (const side of [-1, 1]) {
       const leg = pivot(rig, [side * 0.145, 1.46, 0.01]);
+      leg.name = `hero-hip-${side}`;
       profile(leg, dark, [
         [-0.695, 0.087, 0.086, 0],
         [-0.55, 0.098, 0.102, 0.008],
@@ -442,6 +445,7 @@ export function createHero(): ModelRig {
         0.01,
       );
       const knee = pivot(leg, [0, -0.69, 0]);
+      knee.name = `hero-knee-${side}`;
       profile(knee, dark, [
         [-0.5, 0.065, 0.081, 0.018],
         [-0.3, 0.086, 0.091, 0.029],
@@ -454,14 +458,16 @@ export function createHero(): ModelRig {
         [-0.27, 0.097, 0.108, 0.018],
         [-0.225, 0.103, 0.111, 0.018],
       ]);
-      profile(knee, navy, [
-        [-0.739, 0.108, 0.211, -0.072],
-        [-0.66, 0.108, 0.205, -0.072],
-        [-0.576, 0.087, 0.126, -0.015],
+      const ankle = pivot(knee, [0, -0.6, 0]);
+      ankle.name = `hero-ankle-${side}`;
+      profile(ankle, navy, [
+        [-0.139, 0.108, 0.211, -0.072],
+        [-0.06, 0.108, 0.205, -0.072],
+        [0.024, 0.087, 0.126, -0.015],
       ]);
-      profile(knee, dark, [
-        [-0.77, 0.112, 0.22, -0.07],
-        [-0.732, 0.113, 0.22, -0.07],
+      profile(ankle, dark, [
+        [-0.17, 0.112, 0.22, -0.07],
+        [-0.132, 0.113, 0.22, -0.07],
       ]);
       panel(
         knee,
@@ -497,7 +503,9 @@ export function createHero(): ModelRig {
       );
       legPivots.push(leg);
       knees.push(knee);
+      ankles.push(ankle);
       const arm = pivot(rig, [side * 0.342, 2.16, 0.006]);
+      arm.name = `hero-shoulder-${side}`;
       profile(arm, navy, [
         [-0.385, 0.081, 0.086, 0],
         [-0.26, 0.1, 0.105, 0.006],
@@ -533,6 +541,7 @@ export function createHero(): ModelRig {
       shoulder.rotation.z = side * -0.14;
       inset.rotation.z = side * -0.14;
       const elbow = pivot(arm, [0, -0.36, 0]);
+      elbow.name = `hero-elbow-${side}`;
       profile(elbow, ivory, [
         [-0.13, 0.065, 0.069, 0],
         [0.029, 0.079, 0.08, 0],
@@ -671,6 +680,17 @@ export function createHero(): ModelRig {
       0.014,
     );
     soft(scabbard, teal, [0, 0.26, 0], [0.025, 0.039, 0.022], true);
+    // Separate the pelvis and upper body at the waist without changing the rest silhouette.
+    const parts = [...rig.children];
+    const hips = pivot(rig, [0, 1.46, 0]);
+    hips.name = 'hero-pelvis';
+    const chest = pivot(rig, [0, 1.46, 0]);
+    chest.name = 'hero-chest';
+    const hipParts = new Set<THREE.Object3D>([hipShell, pouch, scabbard, ...legPivots]);
+    for (const part of parts) {
+      part.position.y -= 1.46;
+      (hipParts.has(part) ? hips : chest).add(part);
+    }
     let riding = false;
     const hipPoint = new THREE.Vector3(0, 1.46, 0.01);
     const riderHip = hipPoint.clone();
@@ -680,32 +700,50 @@ export function createHero(): ModelRig {
       setRiding(value) {
         riding = value;
       },
-      animate(time, speed, jump = 0) {
-        const move = THREE.MathUtils.clamp(speed, 0, 1);
-        const gait = time * (7 + move * 3.5);
+      animate(time, speed, jump = 0, motion) {
+        const pose = readLocomotion(time, speed, jump, motion);
+        time = pose.time;
+        jump = pose.jump;
+        const move = pose.weight * (1 - jump * 0.65);
+        const gait = pose.phase;
+        const run = pose.run;
+        const bodyDrop = move * (-0.19 - run * 0.05 + Math.sin(gait) ** 2 * (0.1 + run * 0.02));
         rig.position.y = riding
           ? Math.sin(time * 3.5) * 0.006
-          : Math.abs(Math.sin(gait)) * move * 0.047 + Math.sin(time * 1.9) * 0.005;
-        rig.rotation.x = riding ? -0.025 : -move * 0.055 + jump * 0.035;
-        rig.rotation.z = riding ? 0 : Math.sin(gait) * move * 0.01;
+          : bodyDrop + Math.sin(time * 1.9) * 0.005 * (1 - move);
+        rig.rotation.x = riding ? -0.025 : jump * 0.035;
+        rig.rotation.z = 0;
+        hips.rotation.y = riding ? 0 : Math.sin(gait) * move * (0.028 + run * 0.022);
+        chest.rotation.y = riding ? 0 : -Math.sin(gait) * move * (0.035 + run * 0.035);
+        chest.rotation.x = riding ? 0 : -move * (0.025 + run * 0.16);
+        chest.rotation.z = riding ? 0 : Math.sin(gait) * move * 0.012;
         legPivots.forEach((leg, index) => {
           const side = index === 0 ? -1 : 1;
+          const reach = 0.624 + run * 0.079;
+          const step = sampleFootstep(
+            gait + index * Math.PI,
+            reach,
+            0.18 + run * 0.22,
+            (2 * reach) / (2.4 + run * 1.3),
+          );
+          const angles = solveLeg(step.z * move, 1.29 + bodyDrop - step.lift * move, 0.69, 0.6);
           leg.position.x = side * (riding ? 0.22 : 0.145);
-          leg.rotation.x = riding
-            ? 1.1
-            : Math.sin(gait + index * Math.PI) * move * 0.56 - jump * 0.16;
+          leg.rotation.x = riding ? 1.1 : angles.hip - jump * 0.16;
           leg.rotation.z = riding ? side * 0.22 : 0;
-          knees[index].rotation.x = riding
-            ? -1.04
-            : -Math.max(0, -Math.sin(gait + index * Math.PI)) * move * 0.26;
+          knees[index].rotation.x = riding ? -1.04 : angles.knee - jump * 0.25;
+          ankles[index].rotation.x = riding ? 0 : -angles.hip - angles.knee + step.pitch * move;
         });
         armPivots.forEach((arm, index) => {
           const side = index === 0 ? -1 : 1;
           arm.rotation.x = riding
             ? 0.92 + Math.sin(time * 3.5) * 0.012
-            : -Math.sin(gait + index * Math.PI) * move * 0.53 - jump * 0.24;
+            : -Math.cos(gait + index * Math.PI) * move * (0.32 + run * 0.37) - jump * 0.24;
           arm.rotation.z = side * (riding ? -0.17 : 0.06);
-          elbows[index].rotation.x = riding ? 0.2 : 0.08 + move * 0.22;
+          elbows[index].rotation.x = riding
+            ? 0.2
+            : 0.08 +
+              move * (0.2 + run * 0.92) +
+              Math.sin(gait + index * Math.PI) * move * run * 0.13;
         });
         capes.forEach((cape, index) => {
           cape.rotation.x =

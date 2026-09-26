@@ -111,6 +111,12 @@ export default function TravelAtlas(props: DialogProps) {
       )}
       <div className="current-waypoints">
         <h3>当前场景 · {region.name}</h3>
+        {regionId === 'meadow' && (
+          <p className="nature-route-note">
+            原野环游：鹿溪营地 → 晴风花海 → 风铃山丘。放慢脚步靠近动物，奔跑会惊动它们。
+            点击下方景点即可沿小路前往，途中也可以随时自由探索。
+          </p>
+        )}
         <div className="map-destinations">
           {zoneKeys.map((key, i) => (
             <button key={key} onClick={() => travelTo(key)}>

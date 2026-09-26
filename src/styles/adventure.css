@@ -906,3 +906,13 @@
   opacity: 0.6;
   cursor: default;
 }
+
+.nature-route-note {
+  margin: 10px 0 16px;
+  padding: 12px 15px;
+  border-left: 2px solid #9eaf7c;
+  background: #dce7c639;
+  color: #667d5f;
+  font-size: 11px;
+  line-height: 1.9;
+}

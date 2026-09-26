@@ -9,7 +9,28 @@ export interface WorldTree extends WorldPoint {
   rotation: number;
 }
 
-export const WORLD_BOUNDS = { minX: -72, maxX: 72, minZ: -72, maxZ: 72 } as const;
+export interface WorldBounds {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+const COMPACT_BOUNDS: Readonly<WorldBounds> = Object.freeze({
+  minX: -72,
+  maxX: 72,
+  minZ: -72,
+  maxZ: 72,
+});
+/** Compatibility default: callers without a region are exploring the meadow. */
+export const WORLD_BOUNDS: Readonly<WorldBounds> = Object.freeze({
+  minX: -108,
+  maxX: 108,
+  minZ: -108,
+  maxZ: 108,
+});
+export function getWorldBounds(region: RegionId = 'meadow'): Readonly<WorldBounds> {
+  return region === 'meadow' ? WORLD_BOUNDS : COMPACT_BOUNDS;
+}
 export const SPAWN_POSITION: WorldPoint = { x: 0, z: 24 };
 export const WORLD_ZONES: Record<WorldZone, WorldPoint> = {
   ruins: { x: -8, z: -23 },
@@ -138,25 +159,77 @@ function makeTrees(): WorldTree[] {
   return trees;
 }
 const TREE_CANDIDATES = makeTrees();
+function makeOuterMeadowTrees(): WorldTree[] {
+  let seed = 17849;
+  const random = () => {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
+  const trees: WorldTree[] = [];
+  for (let i = 0; i < 1800 && trees.length < 250; i++) {
+    const x = (random() - 0.5) * 220,
+      z = (random() - 0.5) * 220;
+    if (Math.max(Math.abs(x), Math.abs(z)) < 77) continue;
+    if (trees.some((tree) => Math.hypot(tree.x - x, tree.z - z) < 4.2)) continue;
+    trees.push({
+      x,
+      z,
+      size: 0.82 + random() * 0.75,
+      variant: random() < 0.4 ? 0 : 1,
+      rotation: random() * Math.PI * 2,
+    });
+  }
+  return trees;
+}
+const OUTER_MEADOW_TREES = makeOuterMeadowTrees();
 const treeCache = new Map<RegionId, WorldTree[]>();
 export function getWorldTrees(region: RegionId = 'meadow'): WorldTree[] {
   if (!treeCache.has(region)) {
     const density = { meadow: 0.14, water: 0.42, fire: 0.52, earth: 0.6, steel: 0.55, fairy: 0.19 }[
       region
     ];
-    const trees = TREE_CANDIDATES.filter((tree) => {
-      if (REGION_VOLUMES[region].some((volume) => distanceToVolume(tree.x, tree.z, volume) < 4.8))
-        return false;
-      if (REGION_PLACES[region].some((place) => Math.hypot(place.x - tree.x, place.z - tree.z) < 5))
-        return false;
-      if (distanceToTrail(tree.x, tree.z, region) < 4.3) return false;
-      // Forest patches replace the old uniformly repeated field of trunks.
-      return (
-        Math.sin(tree.x * 0.071 + 1.7) * Math.cos(tree.z * 0.097 - 0.3) +
-          Math.sin(tree.z * 0.042) * 0.35 >
-        density
-      );
-    }).map((tree) => (region === 'fire' && tree.x < -12 ? { ...tree, variant: 0 } : tree));
+    const candidates =
+      region === 'meadow' ? [...TREE_CANDIDATES, ...OUTER_MEADOW_TREES] : TREE_CANDIDATES;
+    const trees = candidates
+      .filter((tree) => {
+        if (REGION_VOLUMES[region].some((volume) => distanceToVolume(tree.x, tree.z, volume) < 4.8))
+          return false;
+        if (
+          REGION_PLACES[region].some((place) => Math.hypot(place.x - tree.x, place.z - tree.z) < 5)
+        )
+          return false;
+        // Keep the arrival camera behind a viewpoint out of the tree crowns.
+        // This narrow corridor preserves nearby woodland without forcing a close-up on arrival.
+        if (
+          REGION_PLACES[region].some((place) => {
+            if (!place.lookAt) return false;
+            const dx = place.x - place.lookAt.x,
+              dz = place.z - place.lookAt.z;
+            const length = Math.hypot(dx, dz);
+            if (!length) return false;
+            const along = Math.max(
+              0,
+              Math.min(15, ((tree.x - place.x) * dx + (tree.z - place.z) * dz) / length),
+            );
+            return (
+              Math.hypot(
+                tree.x - place.x - (dx * along) / length,
+                tree.z - place.z - (dz * along) / length,
+              ) <
+              tree.size * 2.3 + 1.5
+            );
+          })
+        )
+          return false;
+        if (distanceToTrail(tree.x, tree.z, region) < 4.3) return false;
+        // Forest patches replace the old uniformly repeated field of trunks.
+        return (
+          Math.sin(tree.x * 0.071 + 1.7) * Math.cos(tree.z * 0.097 - 0.3) +
+            Math.sin(tree.z * 0.042) * 0.35 >
+          density
+        );
+      })
+      .map((tree) => (region === 'fire' && tree.x < -12 ? { ...tree, variant: 0 } : tree));
     treeCache.set(region, trees);
   }
   return treeCache.get(region)!;
@@ -175,15 +248,16 @@ export const WORLD_OBSTACLES = [
   { x: 47, z: -39, radius: 7 },
 ] as const;
 
-export function clampToWorld(position: WorldPoint): WorldPoint {
+export function clampToWorld(position: WorldPoint, region: RegionId = 'meadow'): WorldPoint {
+  const bounds = getWorldBounds(region);
   return {
     x: Math.max(
-      WORLD_BOUNDS.minX,
-      Math.min(WORLD_BOUNDS.maxX, Number.isFinite(position.x) ? position.x : SPAWN_POSITION.x),
+      bounds.minX,
+      Math.min(bounds.maxX, Number.isFinite(position.x) ? position.x : SPAWN_POSITION.x),
     ),
     z: Math.max(
-      WORLD_BOUNDS.minZ,
-      Math.min(WORLD_BOUNDS.maxZ, Number.isFinite(position.z) ? position.z : SPAWN_POSITION.z),
+      bounds.minZ,
+      Math.min(bounds.maxZ, Number.isFinite(position.z) ? position.z : SPAWN_POSITION.z),
     ),
   };
 }
@@ -195,11 +269,12 @@ export function isWalkable(
 ): boolean {
   if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(radius) || radius < 0)
     return false;
+  const bounds = getWorldBounds(region);
   if (
-    x < WORLD_BOUNDS.minX + radius ||
-    x > WORLD_BOUNDS.maxX - radius ||
-    z < WORLD_BOUNDS.minZ + radius ||
-    z > WORLD_BOUNDS.maxZ - radius
+    x < bounds.minX + radius ||
+    x > bounds.maxX - radius ||
+    z < bounds.minZ + radius ||
+    z > bounds.maxZ - radius
   )
     return false;
   if (lakeDistance(x, z) < 1.065 + radius / 15) return false;
@@ -218,7 +293,7 @@ export function resolveMovement(
 ): WorldPoint {
   if (!Number.isFinite(from.x) || !Number.isFinite(from.z)) return { ...SPAWN_POSITION };
   if (!Number.isFinite(to.x) || !Number.isFinite(to.z)) return { ...from };
-  const destination = clampToWorld(to);
+  const destination = clampToWorld(to, region);
   const distance = Math.hypot(destination.x - from.x, destination.z - from.z);
   const steps = Math.max(1, Math.ceil(distance / 0.32));
   const dx = (destination.x - from.x) / steps,
@@ -243,7 +318,7 @@ function clearSegment(from: WorldPoint, to: WorldPoint, region: RegionId): boole
     const t = lengthSquared
       ? Math.max(0, Math.min(1, ((x - from.x) * dx + (z - from.z) * dz) / lengthSquared))
       : 0;
-    return (from.x + dx * t - x) ** 2 + (from.z + dz * t - z) ** 2 < (radius + 0.625) ** 2;
+    return (from.x + dx * t - x) ** 2 + (from.z + dz * t - z) ** 2 < (radius + 0.6) ** 2;
   };
   for (const obstacle of WORLD_OBSTACLES)
     if (intersectsCircle(obstacle.x, obstacle.z, obstacle.radius)) return false;
@@ -254,8 +329,8 @@ function clearSegment(from: WorldPoint, to: WorldPoint, region: RegionId): boole
     let low = 0,
       high = 1;
     for (const [origin, direction, center, half] of [
-      [from.x, dx, volume.x, volume.halfX + 0.625],
-      [from.z, dz, volume.z, volume.halfZ + 0.625],
+      [from.x, dx, volume.x, volume.halfX + 0.6],
+      [from.z, dz, volume.z, volume.halfZ + 0.6],
     ]) {
       if (Math.abs(direction) < 1e-10) {
         if (Math.abs(origin - center) > half) {
@@ -271,13 +346,14 @@ function clearSegment(from: WorldPoint, to: WorldPoint, region: RegionId): boole
     }
     if (low <= high) return false;
   }
-  const count = Math.max(1, Math.ceil(Math.sqrt(lengthSquared) / 0.25));
+  const count = Math.max(1, Math.ceil(Math.sqrt(lengthSquared) / 0.1));
   for (let i = 0; i <= count; i++)
-    if (lakeDistance(from.x + (dx * i) / count, from.z + (dz * i) / count) < 1.113) return false;
+    if (lakeDistance(from.x + (dx * i) / count, from.z + (dz * i) / count) < 1.065 + 0.6 / 15)
+      return false;
   return true;
 }
 
-/** Small deterministic A* grid, simplified only where the entire shortcut is safe. */
+/** Deterministic A* with a heap frontier; shortcuts require continuous clearance. */
 export function getNavigationPath(
   from: WorldPoint,
   to: WorldPoint,
@@ -309,13 +385,42 @@ export function getNavigationPath(
   if (!start || !goal) return [];
   type Node = { x: number; z: number; g: number; f: number; parent: Node | null };
   const open: Node[] = [{ ...start, g: 0, f: 0, parent: null }];
+  const push = (node: Node) => {
+    let index = open.length;
+    open.push(node);
+    while (index > 0) {
+      const parent = (index - 1) >> 1;
+      if (open[parent].f <= node.f) break;
+      open[index] = open[parent];
+      index = parent;
+    }
+    open[index] = node;
+  };
+  const pop = () => {
+    const result = open[0],
+      last = open.pop()!;
+    if (open.length) {
+      let index = 0;
+      while (index * 2 + 1 < open.length) {
+        let child = index * 2 + 1;
+        if (child + 1 < open.length && open[child + 1].f < open[child].f) child++;
+        if (last.f <= open[child].f) break;
+        open[index] = open[child];
+        index = child;
+      }
+      open[index] = last;
+    }
+    return result;
+  };
   const costs = new Map<string, number>([[key(start.x, start.z), 0]]);
   const closed = new Set<string>();
   let end: Node | null = null;
-  for (let attempt = 0; open.length && attempt < 6500; attempt++) {
-    let best = 0;
-    for (let i = 1; i < open.length; i++) if (open[i].f < open[best].f) best = i;
-    const current = open.splice(best, 1)[0];
+  const bounds = getWorldBounds(region);
+  const budget =
+    Math.ceil(((bounds.maxX - bounds.minX) / cell + 1) * ((bounds.maxZ - bounds.minZ) / cell + 1)) *
+    3;
+  for (let attempt = 0; open.length && attempt < budget; attempt++) {
+    const current = pop();
     const currentKey = key(current.x, current.z);
     if (closed.has(currentKey)) continue;
     closed.add(currentKey);
@@ -336,7 +441,7 @@ export function getNavigationPath(
         const g = current.g + Math.hypot(dx, dz);
         if (g >= (costs.get(nextKey) ?? Infinity)) continue;
         costs.set(nextKey, g);
-        open.push({ x, z, g, f: g + Math.hypot(x - goal.x, z - goal.z), parent: current });
+        push({ x, z, g, f: g + Math.hypot(x - goal.x, z - goal.z), parent: current });
       }
   }
   if (!end) return [];

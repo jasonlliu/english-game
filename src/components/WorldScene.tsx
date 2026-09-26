@@ -12,7 +12,9 @@ import {
   type FlightPosition,
   type FlightStatus,
 } from '../game/flight';
-import { REGION_VOLUMES, TEMPLE_ENTRANCE } from '../game/landmarks';
+import { createLocomotionState, stepLocomotion, stepFollower } from '../game/locomotion';
+import RunControl from './RunControl';
+import { REGION_PLACES, REGION_VOLUMES, TEMPLE_ENTRANCE } from '../game/landmarks';
 import {
   CRYSTAL_POSITIONS,
   SPAWN_POSITION,
@@ -80,6 +82,7 @@ export default function WorldScene(props: WorldSceneProps) {
   const excitementRef = useRef<(() => void) | null>(null);
   const collectedRef = useRef(new Set(props.collectedCrystals));
   const joystickRef = useRef({ x: 0, y: 0 });
+  const runRef = useRef(false);
   const jumpRef = useRef<(() => void) | null>(null);
   const toggleFlightRef = useRef<(() => void) | null>(null);
   const flightHoldRef = useRef({ rise: false, descend: false });
@@ -185,7 +188,7 @@ export default function WorldScene(props: WorldSceneProps) {
       canvas.setAttribute('role', 'application');
       canvas.setAttribute(
         'aria-label',
-        '操控人类探险家自由探索，宠物会跟随你。WASD 或方向键移动，空格跳跃，拖拽转动视角，点击地面前往。靠近野生伙伴按 E 建立羁绊。可飞行伙伴随行时按 F 骑乘起飞或安全降落，飞行时空格上升，Shift 或 Control 下降。',
+        '操控人类探险家自由探索，宠物会跟随你。WASD 或方向键移动，按住 Shift 奔跑，空格跳跃，拖拽转动视角，点击地面前往。靠近野生伙伴按 E 建立羁绊。可飞行伙伴随行时按 F 骑乘起飞或安全降落，飞行时空格上升，Shift 或 Control 下降。',
       );
       mount.appendChild(canvas);
       const scene = new THREE.Scene();
@@ -229,6 +232,13 @@ export default function WorldScene(props: WorldSceneProps) {
         followerPath: WorldPoint[] = [],
         lastFollowerRepath = 0;
       const heroTrail: WorldPoint[] = [{ ...player }];
+      const heroMotion = createLocomotionState();
+      const followerMotion = createLocomotionState();
+      let followerStuckTime = 0;
+      const resetMotion = () => {
+        Object.assign(heroMotion, createLocomotionState());
+        Object.assign(followerMotion, createLocomotionState(companion?.locomotion));
+      };
       const installCompanion = () => {
         // Keep the existing mount until its rider has reached safe ground, including storage updates.
         if (flightPhase !== 'ground') {
@@ -248,6 +258,7 @@ export default function WorldScene(props: WorldSceneProps) {
         companionAnchor.visible = !!companion;
         if (companion) companionAnchor.add(companion.group);
         followerPath = [];
+        Object.assign(followerMotion, createLocomotionState(companion?.locomotion));
       };
       replaceCompanionRef.current = installCompanion;
       installCompanion();
@@ -326,6 +337,7 @@ export default function WorldScene(props: WorldSceneProps) {
         yaw = requestedSpawn ? -0.08 : arrivalYaw,
         pitch = 0.22,
         cameraDistance = 14;
+      let arrivalViewYaw: number | null = null;
       let jumpHeight = 0,
         verticalVelocity = 0,
         excitementStarted = -100;
@@ -345,6 +357,7 @@ export default function WorldScene(props: WorldSceneProps) {
         const destination = point ?? (zone ? WORLD_ZONES[zone] : null);
         if (!destination) return;
         canvas.focus({ preventScroll: true });
+        arrivalViewYaw = null;
         navigation = getNavigationPath(player, destination);
         navigationZone = point ? null : zone;
         setMovingTo(navigation.length > 0);
@@ -368,6 +381,7 @@ export default function WorldScene(props: WorldSceneProps) {
         lastY = 0,
         dragged = false;
       const stopNavigation = () => {
+        arrivalViewYaw = null;
         navigation = [];
         navigationZone = null;
         setMovingTo(false);
@@ -416,6 +430,7 @@ export default function WorldScene(props: WorldSceneProps) {
         publishFlightState(true);
       };
       const finishLanding = () => {
+        resetMotion();
         flightPhase = 'ground';
         landingSpot = null;
         landingDescending = false;
@@ -468,6 +483,7 @@ export default function WorldScene(props: WorldSceneProps) {
         takeoffHeight = Math.min(FLIGHT_CEILING, getFlightFloor(player.x, player.z) + 4);
         desiredMountScale = id === 'lumi' ? 1.75 : 1.6;
         flightPhase = 'takeoff';
+        resetMotion();
         jumpHeight = 0;
         verticalVelocity = 0;
         followerPath = [];
@@ -493,6 +509,7 @@ export default function WorldScene(props: WorldSceneProps) {
         if (propsRef.current.paused || event.button !== 0) return;
         canvas.focus({ preventScroll: true });
         dragging = true;
+        arrivalViewYaw = null;
         pointerId = event.pointerId;
         startX = lastX = event.clientX;
         startY = lastY = event.clientY;
@@ -596,15 +613,15 @@ export default function WorldScene(props: WorldSceneProps) {
             'ArrowLeft',
             'ArrowRight',
             'Space',
-            ...(flightPhase !== 'ground'
-              ? ['ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight']
-              : []),
+            'ShiftLeft',
+            'ShiftRight',
+            ...(flightPhase !== 'ground' ? ['ControlLeft', 'ControlRight'] : []),
           ].includes(event.code)
         ) {
           event.preventDefault();
           keys.add(event.code);
           if (event.code === 'Space' && !event.repeat) jump();
-          else if (event.code !== 'Space') stopNavigation();
+          else if (!['Space', 'ShiftLeft', 'ShiftRight'].includes(event.code)) stopNavigation();
         }
       };
       const keyUp = (event: KeyboardEvent) => {
@@ -612,6 +629,7 @@ export default function WorldScene(props: WorldSceneProps) {
       };
       const blur = () => {
         keys.clear();
+        resetMotion();
         joystickRef.current = { x: 0, y: 0 };
         flightHoldRef.current = { rise: false, descend: false };
         setStick({ x: 0, y: 0 });
@@ -744,12 +762,17 @@ export default function WorldScene(props: WorldSceneProps) {
               if (!navigation.length) {
                 setMovingTo(false);
                 waypoint.visible = false;
+                const view = REGION_PLACES[region].find(
+                  (place) => Math.hypot(place.x - target.x, place.z - target.z) < 0.1,
+                )?.lookAt;
+                if (view) arrivalViewYaw = Math.atan2(player.x - view.x, player.z - view.z);
                 if (navigationZone) propsRef.current.onExplore(navigationZone);
                 navigationZone = null;
               }
             } else {
-              dx = (target.x - player.x) / distance;
-              dz = (target.z - player.z) / distance;
+              const arrival = navigation.length === 1 ? Math.min(1, distance / 1.8) : 1;
+              dx = ((target.x - player.x) / distance) * arrival;
+              dz = ((target.z - player.z) / distance) * arrival;
               if (!dragging) yaw = lerpAngle(yaw, Math.atan2(-dx, -dz), 1 - Math.exp(-delta * 1.4));
             }
           }
@@ -820,18 +843,23 @@ export default function WorldScene(props: WorldSceneProps) {
               );
               if (airPosition.y <= landingHeight + 0.015) finishLanding();
             }
-          } else if (Math.hypot(dx, dz) > 0.01) {
-            const next = resolveMovement(player, {
-              x: player.x + dx * 6.4 * delta,
-              z: player.z + dz * 6.4 * delta,
-            });
-            movingSpeed = Math.min(
-              1,
-              Math.hypot(next.x - player.x, next.z - player.z) / (delta * 6.4 || 1),
+          } else {
+            const next = stepLocomotion(
+              heroMotion,
+              player,
+              { x: dx, z: dz },
+              keys.has('ShiftLeft') || keys.has('ShiftRight') || runRef.current,
+              delta,
+              resolveMovement,
             );
-            player.x = next.x;
-            player.z = next.z;
-            heading = lerpAngle(heading, Math.atan2(-dx, -dz), 1 - Math.exp(-delta * 10));
+            movingSpeed = heroMotion.blend;
+            if (heroMotion.speed > 0.06)
+              heading = lerpAngle(
+                heading,
+                Math.atan2(player.x - next.x, player.z - next.z),
+                1 - Math.exp(-delta * 10),
+              );
+            Object.assign(player, next);
           }
           if (flightPhase === 'ground') {
             if (jumpHeight > 0 || verticalVelocity > 0) {
@@ -880,13 +908,19 @@ export default function WorldScene(props: WorldSceneProps) {
             propsRef.current.onNearTemple?.(templeNear);
           }
         }
+        if (!paused && arrivalViewYaw !== null && !dragging && heroMotion.speed < 0.1)
+          yaw = lerpAngle(yaw, arrivalViewYaw, 1 - Math.exp(-delta * 2));
         const ground = getTerrainHeight(player.x, player.z);
         const airborne = flightPhase !== 'ground';
         const excitementAge = elapsed - excitementStarted;
         heroAnchor.position.set(player.x, ground + jumpHeight, player.z);
         heroAnchor.rotation.y = heading;
-        hero.animate(visualTime, airborne ? 0 : movingSpeed, airborne ? 0 : jumpHeight / 1.5);
-        let followerSpeed = 0;
+        hero.animate(
+          visualTime,
+          airborne ? 0 : heroMotion.blend,
+          airborne ? 0 : jumpHeight / 1.5,
+          heroMotion,
+        );
         if (companion && !paused && !airborne) {
           let behind: WorldPoint = {
             x: player.x + Math.sin(heading) * 1.8,
@@ -916,40 +950,50 @@ export default function WorldScene(props: WorldSceneProps) {
             : isWalkable(behind.x, behind.z)
               ? behind
               : { ...player };
-          if (
+          while (
             followerPath.length &&
-            Math.hypot(follower.x - followerPath[0].x, follower.z - followerPath[0].z) < 0.38
+            Math.hypot(follower.x - followerPath[0].x, follower.z - followerPath[0].z) < 0.5
           )
             followerPath.shift();
+          // Stale routes end at an old player position: return smoothly to the moving goal.
+          if (followerPath.length && Math.hypot(player.x - follower.x, player.z - follower.z) < 3)
+            followerPath = [];
           const target = followerPath[0] ?? goal;
-          const distance = Math.hypot(target.x - follower.x, target.z - follower.z);
-          if (distance > 0.12) {
-            const step = Math.min(distance, delta * (movingSpeed > 0.1 ? 8.0 : 4.8));
-            const next = resolveMovement(follower, {
-              x: follower.x + ((target.x - follower.x) / distance) * step,
-              z: follower.z + ((target.z - follower.z) / distance) * step,
-            });
-            const covered = Math.hypot(next.x - follower.x, next.z - follower.z);
-            if (covered > 0.002)
-              followerHeading = lerpAngle(
-                followerHeading,
-                Math.atan2(follower.x - next.x, follower.z - next.z),
-                1 - Math.exp(-delta * 8),
-              );
-            followerSpeed = Math.min(1, covered / (delta * 7 || 1));
-            follower.x = next.x;
-            follower.z = next.z;
-            if (covered < step * 0.25 && now - lastFollowerRepath > 0.7) {
-              followerPath = getNavigationPath(follower, goal);
-              lastFollowerRepath = now;
-            }
-          } else followerHeading = lerpAngle(followerHeading, heading, 1 - Math.exp(-delta * 2.5));
+          const next = stepFollower(
+            followerMotion,
+            follower,
+            target,
+            heroMotion.speed,
+            delta,
+            resolveMovement,
+          );
+          const covered = Math.hypot(next.x - follower.x, next.z - follower.z);
+          if (covered > 0.001)
+            followerHeading = lerpAngle(
+              followerHeading,
+              Math.atan2(follower.x - next.x, follower.z - next.z),
+              1 - Math.exp(-delta * 9),
+            );
+          Object.assign(follower, next);
           if (
-            Math.hypot(player.x - follower.x, player.z - follower.z) > 17 &&
+            Math.hypot(target.x - follower.x, target.z - follower.z) > 1 &&
+            followerMotion.speed < 0.25
+          )
+            followerStuckTime += delta;
+          else followerStuckTime = 0;
+          // Only invoke A* after sustained blocking, never on an ordinary stride or stop.
+          if (followerStuckTime > 0.35 && now - lastFollowerRepath > 1.2) {
+            followerPath = getNavigationPath(follower, goal);
+            lastFollowerRepath = now;
+            followerStuckTime = 0;
+          }
+          // Recover only when well outside the camera; ordinary lag is handled by catch-up speed.
+          if (
+            Math.hypot(player.x - follower.x, player.z - follower.z) > 32 &&
             isWalkable(behind.x, behind.z)
           ) {
-            follower.x = behind.x;
-            follower.z = behind.z;
+            Object.assign(follower, behind);
+            Object.assign(followerMotion, createLocomotionState(companion?.locomotion));
             followerPath = [];
           }
         }
@@ -985,7 +1029,7 @@ export default function WorldScene(props: WorldSceneProps) {
             (!reducedMotion && excitementAge >= 0 && excitementAge < 1.1
               ? (excitementAge / 1.1) * Math.PI * 2
               : 0);
-          companion?.animate(visualTime, followerSpeed, petBounce);
+          companion?.animate(visualTime, followerMotion.blend, petBounce, followerMotion);
         }
         if (wildPet) {
           wildPet.animate(visualTime, 0, 0);
@@ -1066,7 +1110,11 @@ export default function WorldScene(props: WorldSceneProps) {
           collected: collectedRef.current,
           treasureOpened: propsRef.current.treasureOpened,
         });
-        regionalScenery.update(visualTime, propsRef.current.templeVisited);
+        regionalScenery.update(visualTime, propsRef.current.templeVisited, {
+          position: player,
+          delta: paused ? 0 : delta,
+          running: !airborne && heroMotion.speed > 5.5,
+        });
         if (now - lastPositionTime > 0.125) {
           lastPositionTime = now;
           const current = { x: player.x, z: player.z, heading };
@@ -1167,7 +1215,7 @@ export default function WorldScene(props: WorldSceneProps) {
             pointerEvents: 'none',
           }}
         >
-          正在前往 · 移动方向键可取消
+          正在前往<span className="world-auto-walk-hint"> · Shift 奔跑 · 方向键取消</span>
         </div>
       )}
       {nearWild && props.wildPetId && !props.paused && !flightControls.flying && (
@@ -1205,6 +1253,12 @@ export default function WorldScene(props: WorldSceneProps) {
         >
           <span style={{ transform: `translate(${stick.x * 30}px,${stick.y * 30}px)` }} />
         </div>
+        <RunControl
+          disabled={props.paused || flightControls.flying}
+          onChange={(running) => {
+            runRef.current = running;
+          }}
+        />
         {!flightControls.flying && (
           <button className="world-jump" onClick={() => jumpRef.current?.()} aria-label="跳跃">
             ↑<span>跳跃</span>
@@ -1234,7 +1288,7 @@ export default function WorldScene(props: WorldSceneProps) {
           </div>
         )}
       </div>
-      <style>{`.world-touch-controls{display:none;position:absolute;inset:0;pointer-events:none!important}.world-joystick{position:absolute;left:24px;bottom:60px;width:104px;height:104px;border:1px solid #fff8;border-radius:50%;background:#294f4038;backdrop-filter:blur(6px);pointer-events:auto;display:grid;place-items:center}.world-joystick:before{content:'';position:absolute;width:66px;height:66px;border:1px solid #fff3;border-radius:50%}.world-joystick>span{width:43px;height:43px;border:1px solid #fff9;background:#ffffff69;border-radius:50%;box-shadow:0 4px 18px #23442a28}.world-jump{position:absolute;right:27px;bottom:43px;width:68px;height:68px;display:grid;place-content:center;gap:2px;border:1px solid #fff9;border-radius:50%;color:#fff9e1;background:#244f4266;backdrop-filter:blur(6px);font-size:25px;pointer-events:auto}.world-jump>span{font-size:10px}@media(pointer:coarse),(max-width:760px){.world-touch-controls{display:block}}`}</style>
+      <style>{`.world-touch-controls{display:none;position:absolute;inset:0;pointer-events:none!important}.world-joystick{position:absolute;left:24px;bottom:60px;width:104px;height:104px;border:1px solid #fff8;border-radius:50%;background:#294f4038;backdrop-filter:blur(6px);pointer-events:auto;display:grid;place-items:center}.world-joystick:before{content:'';position:absolute;width:66px;height:66px;border:1px solid #fff3;border-radius:50%}.world-joystick>span{width:43px;height:43px;border:1px solid #fff9;background:#ffffff69;border-radius:50%;box-shadow:0 4px 18px #23442a28}.world-jump{position:absolute;right:27px;bottom:43px;width:68px;height:68px;display:grid;place-content:center;gap:2px;border:1px solid #fff9;border-radius:50%;color:#fff9e1;background:#244f4266;backdrop-filter:blur(6px);font-size:25px;pointer-events:auto}.world-jump>span{font-size:10px}@media(pointer:coarse),(max-width:760px){.world-touch-controls{display:block}.world-auto-walk{bottom:132px!important;font-size:10px!important;white-space:nowrap}.world-auto-walk-hint{display:none}}`}</style>
     </div>
   );
 }

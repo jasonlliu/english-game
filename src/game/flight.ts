@@ -3,10 +3,10 @@ import { REGION_VOLUMES, distanceToVolume } from './landmarks';
 import {
   LAKE,
   SPAWN_POSITION,
-  WORLD_BOUNDS,
   WORLD_OBSTACLES,
   clampToWorld,
   getTerrainHeight,
+  getWorldBounds,
   getWorldTrees,
   isWalkable,
   lakeDistance,
@@ -30,11 +30,12 @@ export function canPetFly(id: PetId | null | undefined, stage: number): boolean 
   return id === 'lumi' || (id === 'ember' && stage === 3);
 }
 
-function boundedPoint(point: WorldPoint): WorldPoint {
-  const p = clampToWorld(point);
+function boundedPoint(point: WorldPoint, region: RegionId): WorldPoint {
+  const p = clampToWorld(point, region);
+  const bounds = getWorldBounds(region);
   return {
-    x: Math.max(WORLD_BOUNDS.minX + 1.5, Math.min(WORLD_BOUNDS.maxX - 1.5, p.x)),
-    z: Math.max(WORLD_BOUNDS.minZ + 1.5, Math.min(WORLD_BOUNDS.maxZ - 1.5, p.z)),
+    x: Math.max(bounds.minX + 1.5, Math.min(bounds.maxX - 1.5, p.x)),
+    z: Math.max(bounds.minZ + 1.5, Math.min(bounds.maxZ - 1.5, p.z)),
   };
 }
 const smooth = (t: number) => {
@@ -106,16 +107,19 @@ export function moveFlight(
   dt: number,
   region: RegionId = 'meadow',
 ): FlightPosition {
-  const from = boundedPoint(position);
+  const from = boundedPoint(position, region);
   const delta = Number.isFinite(dt) ? Math.max(0, Math.min(dt, 0.1)) : 0;
   const dx = Number.isFinite(direction.x) ? direction.x : 0,
     dz = Number.isFinite(direction.z) ? direction.z : 0;
   const length = Math.hypot(dx, dz);
   const divisor = Math.max(1, length);
-  const to = boundedPoint({
-    x: from.x + (dx / divisor) * FLIGHT_SPEED * delta,
-    z: from.z + (dz / divisor) * FLIGHT_SPEED * delta,
-  });
+  const to = boundedPoint(
+    {
+      x: from.x + (dx / divisor) * FLIGHT_SPEED * delta,
+      z: from.z + (dz / divisor) * FLIGHT_SPEED * delta,
+    },
+    region,
+  );
   const distance = Math.hypot(to.x - from.x, to.z - from.z);
   let floor = getFlightFloor(from.x, from.z, region);
   const samples = Math.max(1, Math.ceil(distance / 0.4));
@@ -140,11 +144,12 @@ export function moveFlight(
 }
 
 function safeLanding(point: WorldPoint, region: RegionId): boolean {
+  const bounds = getWorldBounds(region);
   if (
-    point.x < WORLD_BOUNDS.minX + 1.5 ||
-    point.x > WORLD_BOUNDS.maxX - 1.5 ||
-    point.z < WORLD_BOUNDS.minZ + 1.5 ||
-    point.z > WORLD_BOUNDS.maxZ - 1.5
+    point.x < bounds.minX + 1.5 ||
+    point.x > bounds.maxX - 1.5 ||
+    point.z < bounds.minZ + 1.5 ||
+    point.z > bounds.maxZ - 1.5
   )
     return false;
   if (!isWalkable(point.x, point.z, 1.1, region) || lakeDistance(point.x, point.z) < 1.18)
@@ -175,7 +180,7 @@ function safeLanding(point: WorldPoint, region: RegionId): boolean {
 
 /** Find open land under or near the rider, never water, a tree trunk or a ruin pillar. */
 export function findLandingSpot(from: WorldPoint, region: RegionId = 'meadow'): WorldPoint {
-  const center = boundedPoint(from);
+  const center = boundedPoint(from, region);
   if (safeLanding(center, region)) return center;
   for (let radius = 0.75; radius <= 55; radius += 0.75) {
     const samples = Math.ceil((2 * Math.PI * radius) / 0.9);

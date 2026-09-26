@@ -21,8 +21,8 @@ export default function GuideDialog(props: DialogProps) {
         <div>
           <b>自由移动，带上伙伴</b>
           <p>
-            WASD
-            或方向键控制主人公，空格跳跃，拖拽镜头。也可以点击地面或使用手机摇杆。点击左下角头像选择随行宠物。
+            WASD 或方向键控制主人公，按住 Shift
+            奔跑，空格跳跃，拖拽镜头。也可以点击地面前往；手机使用摇杆和奔跑按钮。点击左下角头像选择随行宠物。
           </p>
         </div>
       </div>

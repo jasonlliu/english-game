@@ -2,6 +2,8 @@ import { ArrowLeft, Check, Compass, Gem, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import * as THREE from 'three';
 import type { SoundCue } from '../audio/types';
+import { createLocomotionState, stepLocomotion, stepFollower } from '../game/locomotion';
+import RunControl from './RunControl';
 import type { PetId, RegionId } from '../game/adventure';
 import { activateTempleSeal, TEMPLE_THEMES } from '../game/temple';
 import {
@@ -46,6 +48,7 @@ export default function TempleScene(props: Props) {
     [retry, setRetry] = useState(0);
   const navigateRef = useRef<(id: number) => void>(() => {}),
     interactRef = useRef<() => void>(() => {});
+  const runRef = useRef(false);
   const joystick = useRef({ x: 0, z: 0 }),
     stickRef = useRef<HTMLSpanElement>(null);
   interactRef.current = () => {
@@ -126,6 +129,11 @@ export default function TempleScene(props: Props) {
       lifetime.add(() => companion?.dispose());
       const player = { ...TEMPLE_SPAWN },
         follower = { x: -2, z: 12 };
+      const heroMotion = createLocomotionState();
+      const followerMotion = createLocomotionState();
+      const heroTrail: WorldPoint[] = [{ ...player }];
+      let followerHeading = 0,
+        followerStuckTime = 0;
       let heading = 0,
         yaw = 0,
         pitch = 0.3,
@@ -164,6 +172,8 @@ export default function TempleScene(props: Props) {
       };
       const clear = () => {
         keys.clear();
+        Object.assign(heroMotion, createLocomotionState());
+        Object.assign(followerMotion, createLocomotionState(companion?.locomotion));
         joystick.current = { x: 0, z: 0 };
         if (stickRef.current) stickRef.current.style.transform = 'translate(0,0)';
         drag = null;
@@ -183,6 +193,8 @@ export default function TempleScene(props: Props) {
             'ArrowDown',
             'ArrowLeft',
             'ArrowRight',
+            'ShiftLeft',
+            'ShiftRight',
             'Space',
             'KeyE',
             'KeyF',
@@ -242,8 +254,12 @@ export default function TempleScene(props: Props) {
       lifetime.listen(renderer.domElement, 'pointerdown', down);
       lifetime.listen(renderer.domElement, 'pointermove', move);
       lifetime.listen(renderer.domElement, 'pointerup', up);
-      lifetime.listen(renderer.domElement, 'pointercancel', clear);
-      lifetime.listen(renderer.domElement, 'lostpointercapture', clear);
+      // Releasing the camera finger/mouse must preserve keyboard and joystick movement.
+      const cancelDrag = () => {
+        drag = null;
+      };
+      lifetime.listen(renderer.domElement, 'pointercancel', cancelDrag);
+      lifetime.listen(renderer.domElement, 'lostpointercapture', cancelDrag);
       lifetime.listen(renderer.domElement, 'wheel', wheel, { passive: false });
       lifetime.listen(window, 'keydown', keyDown);
       lifetime.listen(window, 'keyup', keyUp);
@@ -291,6 +307,9 @@ export default function TempleScene(props: Props) {
               ? createPet(latest.current.companionId, latest.current.stage)
               : null;
             if (companion) scene.add(companion.group);
+            Object.assign(followerMotion, createLocomotionState(companion?.locomotion));
+            followerPath = [];
+            followerStuckTime = 0;
             petKey = newKey;
           }
           let dx = 0,
@@ -316,8 +335,9 @@ export default function TempleScene(props: Props) {
                 path.shift();
                 if (!path.length) clickTarget.visible = false;
               } else {
-                dx = (target.x - player.x) / dist;
-                dz = (target.z - player.z) / dist;
+                const arrival = path.length === 1 ? Math.min(1, dist / 1.8) : 1;
+                dx = ((target.x - player.x) / dist) * arrival;
+                dz = ((target.z - player.z) / dist) * arrival;
               }
             }
           }
@@ -326,17 +346,27 @@ export default function TempleScene(props: Props) {
             dx /= magnitude;
             dz /= magnitude;
           }
-          const next = resolveTempleMovement(player, {
-            x: player.x + dx * 5.5 * dt,
-            z: player.z + dz * 5.5 * dt,
-          });
-          const moving = Math.hypot(next.x - player.x, next.z - player.z) / dt;
-          Object.assign(player, next);
-          if (moving > 0.1) {
-            const angle = Math.atan2(-dx, -dz);
-            heading +=
-              Math.atan2(Math.sin(angle - heading), Math.cos(angle - heading)) *
-              Math.min(1, dt * 12);
+          if (!paused) {
+            const next = stepLocomotion(
+              heroMotion,
+              player,
+              { x: dx, z: dz },
+              keys.has('ShiftLeft') || keys.has('ShiftRight') || runRef.current,
+              dt,
+              resolveTempleMovement,
+            );
+            if (heroMotion.speed > 0.06) {
+              const angle = Math.atan2(player.x - next.x, player.z - next.z);
+              heading +=
+                Math.atan2(Math.sin(angle - heading), Math.cos(angle - heading)) *
+                (1 - Math.exp(-dt * 10));
+            }
+            Object.assign(player, next);
+            const tail = heroTrail[heroTrail.length - 1];
+            if (Math.hypot(player.x - tail.x, player.z - tail.z) > 0.3) {
+              heroTrail.push({ ...player });
+              if (heroTrail.length > 80) heroTrail.shift();
+            }
           }
           if (!paused) {
             if (keys.has('Space') && jump === 0) vy = 5.3;
@@ -344,46 +374,67 @@ export default function TempleScene(props: Props) {
             jump = Math.max(0, jump + vy * dt);
             if (jump === 0) vy = 0;
           }
-          hero.animate(time, Math.min(moving / 5.5, 1), jump);
+          hero.animate(time, heroMotion.blend, jump, heroMotion);
           hero.group.position.set(player.x, 0.14 + jump, player.z);
           hero.group.rotation.y = heading;
           if (companion) {
-            let followerSpeed = 0;
             if (!paused) {
-              const dist = Math.hypot(player.x - follower.x, player.z - follower.z);
-              if (dist > 2.4) {
-                // Reuse a safe route between modest refreshes instead of pushing into pillars.
-                if (time >= followerRepathAt) {
-                  followerPath = getTemplePath(follower, player);
-                  followerRepathAt = time + 0.6;
+              let goal = {
+                x: player.x + Math.sin(heading) * 2.1,
+                z: player.z + Math.cos(heading) * 2.1,
+              };
+              let remaining = 2.1,
+                previous: WorldPoint = player;
+              for (let i = heroTrail.length - 1; i >= 0; i--) {
+                const point = heroTrail[i],
+                  distance = Math.hypot(point.x - previous.x, point.z - previous.z);
+                if (distance >= remaining && distance > 0.001) {
+                  goal = {
+                    x: previous.x + ((point.x - previous.x) * remaining) / distance,
+                    z: previous.z + ((point.z - previous.z) * remaining) / distance,
+                  };
+                  break;
                 }
-                while (
-                  followerPath.length &&
-                  Math.hypot(followerPath[0].x - follower.x, followerPath[0].z - follower.z) < 0.12
-                )
-                  followerPath.shift();
-                const target = followerPath[0];
-                if (target) {
-                  const distance = Math.hypot(target.x - follower.x, target.z - follower.z),
-                    step = Math.min(distance, Math.min(7, dist * 1.8) * dt);
-                  const nextFollower = resolveTempleMovement(follower, {
-                    x: follower.x + ((target.x - follower.x) / distance) * step,
-                    z: follower.z + ((target.z - follower.z) / distance) * step,
-                  });
-                  const movedX = nextFollower.x - follower.x,
-                    movedZ = nextFollower.z - follower.z;
-                  followerSpeed = Math.hypot(movedX, movedZ) / Math.max(dt, 0.001);
-                  Object.assign(follower, nextFollower);
-                  if (followerSpeed > 0.05)
-                    companion.group.rotation.y = Math.atan2(-movedX, -movedZ);
-                }
-              } else {
-                followerPath = [];
-                followerRepathAt = 0;
+                remaining -= distance;
+                previous = point;
+              }
+              while (
+                followerPath.length &&
+                Math.hypot(followerPath[0].x - follower.x, followerPath[0].z - follower.z) < 0.45
+              )
+                followerPath.shift();
+              if (Math.hypot(player.x - follower.x, player.z - follower.z) < 2.6) followerPath = [];
+              const target = followerPath[0] ?? goal;
+              const nextFollower = stepFollower(
+                followerMotion,
+                follower,
+                target,
+                heroMotion.speed,
+                dt,
+                resolveTempleMovement,
+              );
+              if (followerMotion.speed > 0.05) {
+                const angle = Math.atan2(follower.x - nextFollower.x, follower.z - nextFollower.z);
+                followerHeading +=
+                  Math.atan2(Math.sin(angle - followerHeading), Math.cos(angle - followerHeading)) *
+                  (1 - Math.exp(-dt * 9));
+              }
+              Object.assign(follower, nextFollower);
+              if (
+                Math.hypot(target.x - follower.x, target.z - follower.z) > 0.8 &&
+                followerMotion.speed < 0.25
+              )
+                followerStuckTime += dt;
+              else followerStuckTime = 0;
+              if (followerStuckTime > 0.35 && time >= followerRepathAt) {
+                followerPath = getTemplePath(follower, goal);
+                followerRepathAt = time + 1.2;
+                followerStuckTime = 0;
               }
             }
             companion.group.position.set(follower.x, 0.14, follower.z);
-            companion.animate(time, Math.min(followerSpeed / 7, 1));
+            companion.group.rotation.y = followerHeading;
+            companion.animate(time, followerMotion.blend, 0, followerMotion);
           }
           const nearIndex =
             TEMPLE_TARGETS.map((p, i) => ({ i, d: Math.hypot(player.x - p.x, player.z - p.z) }))
@@ -545,9 +596,15 @@ export default function TempleScene(props: Props) {
       )}
       {!unavailable && (
         <div className="temple-controls-note">
-          WASD 移动 · 拖动视角 · E 交互 · 点击光印名称自动带路
+          WASD 移动 · Shift 奔跑 · 拖动视角 · E 交互 · 点击光印名称自动带路
         </div>
       )}
+      <RunControl
+        disabled={props.paused || unavailable}
+        onChange={(running) => {
+          runRef.current = running;
+        }}
+      />
       <div
         style={unavailable ? { display: 'none' } : undefined}
         className="temple-joystick"

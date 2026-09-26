@@ -91,7 +91,7 @@ export const REGIONS: Record<
     id: 'meadow',
     name: '风语原野',
     element: '光焰',
-    description: '风车转过金色麦田，石屋、山泉和晨辉神庙等你发现。',
+    description: '沿着林间小径，寻找鹿群营地、晴风花海与山顶钟亭。',
     color: '#adca88',
     day: 1,
     petId: 'ember',

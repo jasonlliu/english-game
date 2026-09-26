@@ -1,14 +1,16 @@
 import * as THREE from 'three';
+import {
+  quadrupedPhase,
+  readLocomotion,
+  sampleFootstep,
+  sampleSuspension,
+  solveLeg,
+} from './locomotion';
+import type { ModelRig } from './types';
 type Point = [number, number, number];
 type Radius = [number, number];
 /** An original copper-furred woodland companion. Forward is -Z; feet sit on Y=0. */
-export function createCompanion(stage: 0 | 1 | 2 | 3): {
-  group: THREE.Group;
-  animate(time: number, speed: number, jump?: number): void;
-  setFlying(flying: boolean): void;
-  rideSeat?: THREE.Vector3;
-  dispose(): void;
-} {
+export function createCompanion(stage: 0 | 1 | 2 | 3): ModelRig {
   const group = new THREE.Group();
   group.name = `ember-companion-${stage}`;
   const rig = new THREE.Group();
@@ -215,12 +217,14 @@ export function createCompanion(stage: 0 | 1 | 2 | 3): {
     }
     const legs: Array<{
       pivot: THREE.Group;
-      offset: number;
+      knee: THREE.Group;
+      ankle: THREE.Group;
       front: boolean;
     }> = [];
     for (const side of [-1, 1]) {
       for (const front of [true, false]) {
         const pivot = new THREE.Group();
+        pivot.name = `pet-hip-${legs.length}`;
         pivot.position.set(side * 0.3, 0.86, front ? -0.43 : 0.54);
         rig.add(pivot);
         soft(pivot, fur, [0, -0.13, 0.035], [front ? 0.16 : 0.21, 0.3, front ? 0.18 : 0.26]);
@@ -228,8 +232,8 @@ export function createCompanion(stage: 0 | 1 | 2 | 3): {
           pivot,
           [
             [0, -0.16, 0],
-            [0, -0.42, front ? 0.04 : 0.13],
-            [0, -0.64, 0],
+            [0, -0.3, front ? 0.02 : 0.08],
+            [0, -0.39, 0],
           ],
           [
             [0.13, 0.14],
@@ -238,13 +242,22 @@ export function createCompanion(stage: 0 | 1 | 2 | 3): {
           ],
           fur,
         );
-        soft(pivot, darkFur, [0, -0.58, 0.005], [0.115, 0.18, 0.12]);
-        soft(pivot, darkFur, [0, -0.735, -0.075], [0.17, 0.125, 0.225]);
+        const knee = new THREE.Group();
+        knee.name = `pet-knee-${legs.length}`;
+        knee.position.y = -0.39;
+        pivot.add(knee);
+        soft(knee, fur, [0, -0.08, 0.01], [0.105, 0.14, 0.12]);
+        soft(knee, darkFur, [0, -0.19, 0.005], [0.115, 0.18, 0.12]);
+        const ankle = new THREE.Group();
+        ankle.name = `pet-ankle-${legs.length}`;
+        ankle.position.y = -0.345;
+        knee.add(ankle);
+        soft(ankle, darkFur, [0, 0, -0.075], [0.17, 0.125, 0.225]);
         for (const toe of [-1, 0, 1]) {
-          soft(pivot, darkFur, [toe * 0.086, -0.745, -0.19], [0.06, 0.084, 0.098]);
-          soft(pivot, cream, [toe * 0.086, -0.751, -0.26], [0.023, 0.027, 0.045]);
+          soft(ankle, darkFur, [toe * 0.086, -0.01, -0.19], [0.06, 0.084, 0.098]);
+          soft(ankle, cream, [toe * 0.086, -0.016, -0.26], [0.023, 0.027, 0.045]);
         }
-        legs.push({ pivot, offset: (front ? 0 : Math.PI) + (side === -1 ? 0 : Math.PI), front });
+        legs.push({ pivot, knee, ankle, front });
       }
     }
     const head = new THREE.Group();
@@ -690,32 +703,52 @@ export function createCompanion(stage: 0 | 1 | 2 | 3): {
     let disposed = false;
     return {
       group,
+      locomotion: {
+        walkSpeed: 1.8 * size,
+        runSpeed: 6.2 * size,
+        walkStride: (0.6 / 0.42) * size,
+        runStride: (0.86 / 0.25) * size,
+      },
       rideSeat,
       setFlying(value) {
         flying = stage === 3 && value;
         ridingTack.visible = flying;
       },
-      animate(time, speed, jump = 0) {
+      animate(time, speed, jump = 0, motion) {
         if (disposed) return;
-        const movement = THREE.MathUtils.clamp(speed, 0, 1);
-        const stride = time * (7.5 + movement * 3);
+        const pose = readLocomotion(time, speed, jump, motion);
+        time = pose.time;
+        jump = pose.jump;
+        const movement = pose.weight * (1 - jump * 0.5);
+        const stride = pose.phase;
+        const run = pose.run;
+        const reach = 0.3 + run * 0.13;
+        const duty = (2 * reach) / (0.6 / 0.42 + run * (0.86 / 0.25 - 0.6 / 0.42));
+        const bodyDrop =
+          movement * (-0.075 - run * 0.1 + run * sampleSuspension(stride, duty) * 0.19);
         rig.position.y = flying
           ? Math.sin(time * 5) * 0.035
-          : Math.sin(time * 2.25) * 0.012 + Math.abs(Math.sin(stride)) * movement * 0.045;
-        rig.rotation.z = flying
-          ? Math.sin(time * 2.5) * 0.018
-          : Math.sin(stride) * movement * 0.025;
-        rig.rotation.x = flying ? -0.04 : -Math.min(jump, 1) * 0.06;
-        for (const { pivot, offset, front } of legs) {
-          pivot.rotation.x = flying
-            ? front
-              ? -1.03
-              : 1.12
-            : Math.sin(stride + offset) * movement * 0.53 + Math.min(jump, 1) * 0.16;
-          pivot.position.y = flying
-            ? 0.91
-            : 0.86 + Math.max(0, Math.cos(stride + offset)) * movement * 0.018;
-        }
+          : bodyDrop * size + Math.sin(time * 2.25) * 0.009 * (1 - movement);
+        rig.rotation.z = flying ? Math.sin(time * 2.5) * 0.018 : 0;
+        rig.rotation.x = flying ? -0.04 : -jump * 0.06;
+        legs.forEach(({ pivot, knee, ankle, front }, index) => {
+          const step = sampleFootstep(
+            quadrupedPhase(stride, index, run),
+            reach,
+            0.13 + run * 0.09,
+            duty,
+          );
+          const angles = solveLeg(
+            step.z * movement,
+            0.735 + bodyDrop - step.lift * movement,
+            0.39,
+            0.345,
+          );
+          pivot.rotation.x = flying ? (front ? -1.03 : 1.12) : angles.hip + jump * 0.16;
+          pivot.position.y = flying ? 0.91 : 0.86;
+          knee.rotation.x = flying ? 0 : angles.knee;
+          ankle.rotation.x = flying ? 0 : -angles.hip - angles.knee + step.pitch * movement;
+        });
         tail.rotation.y = Math.sin(time * 2.1) * (0.18 + movement * 0.13);
         tail.rotation.x = Math.sin(time * 2.7) * 0.045 + movement * 0.13;
         head.rotation.y = Math.sin(time * 0.75) * 0.075 * (1 - movement * 0.75);
@@ -729,8 +762,9 @@ export function createCompanion(stage: 0 | 1 | 2 | 3): {
           wing.rotation.z =
             side *
             (0.1 +
-              Math.sin(time * (flying ? 5.2 : 1.8 + movement * 2)) *
-                (flying ? 0.58 : 0.045 + movement * 0.14));
+              (flying
+                ? Math.sin(time * 5.2) * 0.58
+                : Math.sin(time * 1.8) * 0.045 + Math.sin(stride) * movement * 0.14));
           wing.rotation.x = flying
             ? -0.1 + Math.cos(time * 5.2) * 0.08
             : Math.sin(time * 1.8) * 0.028 - 0.1;

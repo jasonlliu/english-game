@@ -1,11 +1,26 @@
 import * as THREE from 'three';
 import { createCompanion } from './ember';
 import { modelKit } from './modelKit';
+import {
+  quadrupedPhase,
+  readLocomotion,
+  sampleFootstep,
+  sampleSuspension,
+  solveLeg,
+} from './locomotion';
 import type { ModelRig, PetId, Point } from './types';
 export function createPet(petId: PetId, stage: 0 | 1 | 2 | 3 = 1): ModelRig {
   if (petId === 'ember') {
     const model = createCompanion(stage);
     model.group.scale.setScalar(0.68);
+    if (model.locomotion) {
+      model.locomotion = {
+        walkSpeed: model.locomotion.walkSpeed * 0.68,
+        runSpeed: model.locomotion.runSpeed * 0.68,
+        walkStride: model.locomotion.walkStride * 0.68,
+        runStride: model.locomotion.runStride * 0.68,
+      };
+    }
     return model;
   }
   const k = modelKit();
@@ -16,7 +31,14 @@ export function createPet(petId: PetId, stage: 0 | 1 | 2 | 3 = 1): ModelRig {
     const dark = material('#263b41');
     const gold = material('#d5b46a', { metalness: 0.55, roughness: 0.37 });
     const eyeGroups: THREE.Group[] = [];
-    const legs: THREE.Group[] = [];
+    const legs: Array<{
+      pivot: THREE.Group;
+      knee?: THREE.Group;
+      ankle?: THREE.Group;
+      height: number;
+      upper: number;
+      lower: number;
+    }> = [];
     const wings: THREE.Group[] = [];
     let head: THREE.Group | undefined;
     let tail: THREE.Group | undefined;
@@ -26,9 +48,17 @@ export function createPet(petId: PetId, stage: 0 | 1 | 2 | 3 = 1): ModelRig {
       for (const side of [-1, 1]) {
         for (const front of [-1, 1]) {
           const leg = pivot(rig, [side * x, height, front * z]);
-          soft(leg, mat, [0, -height * 0.35, 0], [width, height * 0.63, width * 1.12]);
-          soft(leg, mat, [0, -height + 0.065, -0.05], [width * 1.14, 0.065, width * 1.48]);
-          legs.push(leg);
+          leg.name = `pet-hip-${legs.length}`;
+          const upper = (height - 0.065) * 0.5;
+          const lower = upper;
+          soft(leg, mat, [0, -upper * 0.48, 0], [width, upper * 0.82, width * 1.12]);
+          const knee = pivot(leg, [0, -upper, 0]);
+          knee.name = `pet-knee-${legs.length}`;
+          soft(knee, mat, [0, -lower * 0.48, 0], [width * 0.84, lower * 0.83, width]);
+          const ankle = pivot(knee, [0, -lower, 0]);
+          ankle.name = `pet-ankle-${legs.length}`;
+          soft(ankle, mat, [0, 0, -0.05], [width * 1.14, 0.065, width * 1.48]);
+          legs.push({ pivot: leg, knee, ankle, height, upper, lower });
         }
       }
     };
@@ -303,8 +333,9 @@ export function createPet(petId: PetId, stage: 0 | 1 | 2 | 3 = 1): ModelRig {
       soft(rig, pale, [0, 0.365, -0.2], [0.173, 0.22, 0.104]);
       for (const side of [-1, 1]) {
         const foot = pivot(rig, [side * 0.182, 0.13, -0.01]);
+        foot.name = `pet-foot-${legs.length}`;
         soft(foot, pink, [0, 0, -0.07], [0.141, 0.13, 0.228]);
-        legs.push(foot);
+        legs.push({ pivot: foot, height: 0.13, upper: 0, lower: 0 });
         soft(rig, pink, [side * 0.224, 0.414, -0.14], [0.07, 0.177, 0.093]);
       }
       head = pivot(rig, [0, 0.742, -0.21]);
@@ -421,31 +452,68 @@ export function createPet(petId: PetId, stage: 0 | 1 | 2 | 3 = 1): ModelRig {
     const seatPoint = new THREE.Vector3(0, 0.725, 0.19);
     const rideSeat = petId === 'lumi' ? seatPoint.clone().multiplyScalar(size) : undefined;
     let flying = false;
+    const legHeight = legs[0].height;
     return {
       group,
+      locomotion: {
+        walkSpeed: (petId === 'lumi' ? 0.8 : 0.75) * size,
+        runSpeed: 3.6 * size,
+        walkStride: (petId === 'lumi' ? 0.65 : (2 * legHeight * 0.45) / 0.42) * size,
+        runStride: (petId === 'lumi' ? 1.8 : 10 * legHeight) * size,
+      },
       rideSeat,
       setFlying(value) {
         flying = petId === 'lumi' && value;
         if (ridingTack) ridingTack.visible = flying;
       },
-      animate(time, speed, jump = 0) {
-        const move = THREE.MathUtils.clamp(speed, 0, 1);
-        const gait = time * (7 + move * 3);
+      animate(time, speed, jump = 0, motion) {
+        const pose = readLocomotion(time, speed, jump, motion);
+        time = pose.time;
+        jump = pose.jump;
+        const move = pose.weight * (1 - jump * 0.5);
+        const gait = pose.phase;
+        const run = pose.run;
+        const reach = petId === 'lumi' ? 0.12 + run * 0.1 : legHeight * (0.45 + run * 0.15);
+        const cycleLength =
+          petId === 'lumi' ? 0.65 + run * 1.15 : legHeight * (0.9 / 0.42 + run * (10 - 0.9 / 0.42));
+        const duty = (2 * reach) / cycleLength;
+        const bodyDrop =
+          petId === 'lumi'
+            ? move * sampleSuspension(gait, duty) * (0.06 + run * 0.1)
+            : move * legHeight * (-0.24 - run * 0.16 + run * sampleSuspension(gait, duty) * 0.8);
         rig.position.y = flying
           ? Math.sin(time * 5) * 0.027
-          : Math.sin(time * 2) * 0.01 + Math.abs(Math.sin(gait)) * move * 0.035;
-        rig.rotation.z = flying ? Math.sin(time * 2.5) * 0.026 : Math.sin(gait) * move * 0.023;
+          : bodyDrop * size + Math.sin(time * 2) * 0.008 * (1 - move);
+        rig.rotation.z = flying ? Math.sin(time * 2.5) * 0.026 : 0;
         rig.rotation.x = flying ? 0.06 : 0;
-        legs.forEach((leg, index) => {
-          leg.rotation.x = flying
-            ? -0.58
-            : Math.sin(gait + (index === 0 || index === 3 ? 0 : Math.PI)) * move * 0.45 +
-              jump * 0.08;
-          if (petId === 'lumi') leg.position.y = flying ? 0.22 : 0.13;
+        legs.forEach(({ pivot: leg, knee, ankle, height, upper, lower }, index) => {
+          const phase =
+            petId === 'lumi' ? gait + index * Math.PI : quadrupedPhase(gait, index, run);
+          const step = sampleFootstep(
+            phase,
+            reach,
+            petId === 'lumi' ? 0.08 + run * 0.11 : height * (0.22 + run * 0.1),
+            duty,
+          );
+          if (knee && ankle) {
+            const angles = solveLeg(
+              step.z * move,
+              Math.max((upper + lower) * 0.4, height - 0.065 + bodyDrop - step.lift * move),
+              upper,
+              lower,
+            );
+            leg.rotation.x = angles.hip + jump * 0.08;
+            knee.rotation.x = angles.knee;
+            ankle.rotation.x = -angles.hip - angles.knee + step.pitch * move;
+          } else {
+            leg.position.y = flying ? 0.22 : height + step.lift * move - bodyDrop;
+            leg.position.z = flying ? -0.01 : -0.01 + step.z * move;
+            leg.rotation.x = flying ? -0.58 : step.pitch * move + jump * 0.08;
+          }
         });
         if (head) {
           head.rotation.y = Math.sin(time * 0.8) * 0.08 * (1 - move * 0.5);
-          head.rotation.x = Math.sin(time * 1.5) * 0.02;
+          head.rotation.x = Math.sin(time * 1.5) * 0.02 * (1 - move) - move * run * 0.035;
         }
         if (tail) tail.rotation.y = Math.sin(time * 2.3) * (0.15 + move * 0.1);
         wings.forEach((wing, index) => {

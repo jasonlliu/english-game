@@ -8,6 +8,7 @@ export interface RegionPlace {
   x: number;
   z: number;
   kind: string;
+  lookAt?: { x: number; z: number };
 }
 /** Shared by visible architecture, navigation, takeoff clearance and landing. */
 export interface LandmarkVolume {
@@ -60,6 +61,33 @@ export const REGION_PLACES: Record<RegionId, RegionPlace[]> = {
       x: -38,
       z: -17,
       kind: 'waterfall',
+    },
+    {
+      id: 'deer-camp',
+      name: '鹿溪营地',
+      description: '循着林间小径来到溪泉营地，看看帐篷旁慢慢踱步的鹿群。',
+      x: -79,
+      z: 40,
+      kind: 'camp',
+      lookAt: { x: -82, z: 34 },
+    },
+    {
+      id: 'flower-sea',
+      name: '晴风花海',
+      description: '穿过野花与石拱，玻璃花房和小兔藏在东边的暖坡上。',
+      x: 73,
+      z: 56,
+      kind: 'garden',
+      lookAt: { x: 79, z: 62 },
+    },
+    {
+      id: 'bell-hill',
+      name: '风铃山丘',
+      description: '沿山脊步道登上旧钟亭，在风铃声里眺望整个原野。',
+      x: -4,
+      z: -88,
+      kind: 'vista',
+      lookAt: { x: -4, z: -98 },
     },
   ],
   water: [
@@ -204,6 +232,9 @@ export const REGION_SITES: Record<RegionId, ScenerySite[]> = {
     { id: 'village', kind: 'windmill-village', x: -29, z: 13 },
     { id: 'farm', kind: 'farm', x: 17, z: 23 },
     { id: 'falls', kind: 'valley-falls', x: -45, z: -30 },
+    { id: 'deer-camp', kind: 'woodland-camp', x: -84, z: 38 },
+    { id: 'flower-sea', kind: 'flower-garden', x: 77, z: 57 },
+    { id: 'bell-hill', kind: 'hilltop-belfry', x: -4, z: -95 },
   ],
   water: [
     { id: 'harbor', kind: 'harbor', x: 48, z: 17 },
@@ -258,6 +289,22 @@ export const REGION_VOLUMES: Record<RegionId, LandmarkVolume[]> = {
     volume('falls-bridge', -41, -26, 12.2, 2, 17, 8),
     volume('falls-bridge-left', -52.3, -26, 0.8, 1.5, 14),
     volume('falls-bridge-right', -29.7, -26, 0.8, 1.5, 14),
+    volume('camp-lodge', -86, 31, 3.9, 3.6, 8),
+    volume('camp-tent-east', -73, 32, 3.6, 3.1, 4.2),
+    volume('camp-tent-west', -86, 49, 3, 2.8, 3.8),
+    volume('camp-spring-rock', -92, 35, 2.7, 2.5, 5.7),
+    volume('camp-spring-pool', -92, 38.2, 3.1, 2.1, 0.6),
+    volume('camp-firepit', -80, 34, 1.35, 1.35, 1.2),
+    volume('flower-glasshouse', 81, 63, 4.2, 3.2, 7.4),
+    volume('flower-gate-west', 66.5, 50, 0.5, 0.65, 6),
+    volume('flower-gate-east', 73.5, 50, 0.5, 0.65, 6),
+    volume('flower-gate-arch', 70, 50, 4, 0.65, 6.6, 4.4),
+    volume('hill-belfry', -4, -99, 3, 3, 13),
+    volume('hill-gate-west', -11, -90, 0.6, 0.8, 6.6),
+    volume('hill-gate-east', 3, -90, 0.6, 0.8, 6.6),
+    volume('hill-gate-lintel', -4, -90, 7.8, 0.8, 7.2, 5.8),
+    volume('hill-stone-west', -13, -97, 1.4, 2.4, 3.5),
+    volume('hill-stone-east', 5, -99, 1.4, 2.4, 3.5),
   ],
   water: [
     ...templeVolumes,
@@ -326,30 +373,87 @@ export const REGION_PATHS: Record<
 > = Object.fromEntries(
   Object.entries(REGION_PLACES).map(([region, places]) => [
     region,
-    places.slice(1).map((place) => {
-      const start =
-        place.x < -15 ? { x: -17, z: -5 } : place.x > 30 ? { x: 24, z: 8 } : { x: 3, z: 20 };
-      if (place.z < -15 && place.x > 0)
+    places
+      .slice(1)
+      .filter((place) => !['deer-camp', 'flower-sea', 'bell-hill'].includes(place.id))
+      .map((place) => {
+        const start =
+          place.x < -15 ? { x: -17, z: -5 } : place.x > 30 ? { x: 24, z: 8 } : { x: 3, z: 20 };
+        if (place.z < -15 && place.x > 0)
+          return [
+            { x: -2, z: -4 },
+            { x: 7, z: -11 },
+            { x: place.x, z: place.z },
+          ];
+        if (place.z < -15)
+          return [
+            { x: -25, z: -5 },
+            { x: -34, z: -14 },
+            { x: place.x, z: place.z },
+          ];
+        if (place.x > 30) return [start, { x: 32, z: 20 }, { x: place.x, z: place.z }];
         return [
-          { x: -2, z: -4 },
-          { x: 7, z: -11 },
+          start,
+          { x: place.x + (place.x < 0 ? 4 : -4), z: place.z + 3 },
           { x: place.x, z: place.z },
         ];
-      if (place.z < -15)
-        return [
-          { x: -25, z: -5 },
-          { x: -34, z: -14 },
-          { x: place.x, z: place.z },
-        ];
-      if (place.x > 30) return [start, { x: 32, z: 20 }, { x: place.x, z: place.z }];
-      return [
-        start,
-        { x: place.x + (place.x < 0 ? 4 : -4), z: place.z + 3 },
-        { x: place.x, z: place.z },
-      ];
-    }),
+      }),
   ]),
 ) as Record<RegionId, Array<Array<{ x: number; z: number }>>>;
+
+// Deliberate winding routes preserve a wide clearing around the old core and
+// connect the new destinations without drawing paths through water or buildings.
+REGION_PATHS.meadow.push(
+  [
+    { x: 0, z: 30 },
+    { x: -13, z: 32 },
+    { x: -34, z: 34 },
+    { x: -56, z: 38 },
+    { x: -79, z: 40 },
+  ],
+  [
+    { x: 11, z: 23 },
+    { x: 25, z: 36 },
+    { x: 43, z: 45 },
+    { x: 59, z: 51 },
+    { x: 73, z: 56 },
+  ],
+  [
+    { x: -8, z: -23 },
+    { x: 8, z: -20 },
+    { x: 15, z: -35 },
+    { x: 10, z: -49 },
+    { x: 0, z: -62 },
+    { x: -5, z: -76 },
+    { x: -4, z: -88 },
+  ],
+  [
+    { x: -79, z: 40 },
+    { x: -83, z: 13 },
+    { x: -82, z: -14 },
+    { x: -80, z: -47 },
+    { x: -68, z: -68 },
+    { x: -35, z: -83 },
+    { x: -4, z: -88 },
+  ],
+  [
+    { x: 73, z: 56 },
+    { x: 91, z: 37 },
+    { x: 86, z: 5 },
+    { x: 75, z: -28 },
+    { x: 62, z: -61 },
+    { x: 32, z: -82 },
+    { x: -4, z: -88 },
+  ],
+  [
+    { x: -56, z: 38 },
+    { x: -41, z: 59 },
+    { x: -15, z: 73 },
+    { x: 14, z: 85 },
+    { x: 43, z: 77 },
+    { x: 73, z: 56 },
+  ],
+);
 
 export function distanceToVolume(x: number, z: number, volume: LandmarkVolume): number {
   return Math.hypot(

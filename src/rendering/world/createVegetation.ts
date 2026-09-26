@@ -241,12 +241,18 @@ export function createVegetation(context: WorldRenderContext) {
       '#include <begin_vertex>\n transformed.x += sin(windTime*1.3+instanceMatrix[3].x*.25+instanceMatrix[3].z*.18)*position.y*position.y*.24;',
     );
   };
-  const grassInstances = new THREE.InstancedMesh(grassGeometry, grassMaterial, 14000);
+  const grassLimit = region === 'meadow' ? 24000 : 14000;
+  const scatterSize = region === 'meadow' ? 215 : 140;
+  const grassInstances = new THREE.InstancedMesh(grassGeometry, grassMaterial, grassLimit);
   grassInstances.receiveShadow = true;
   let grassCount = 0;
-  for (let i = 0; i < 20000 && grassCount < 14000; i++) {
-    const x = (random() - 0.5) * 140,
-      z = (random() - 0.5) * 140;
+  for (
+    let i = 0;
+    i < (region === 'meadow' ? grassLimit * 1.5 : 20000) && grassCount < grassLimit;
+    i++
+  ) {
+    const x = (random() - 0.5) * scatterSize,
+      z = (random() - 0.5) * scatterSize;
     if (lakeDistance(x, z) < 1.19 || distanceToTrail(x, z) < 1.9 || Math.hypot(x + 8, z + 26) < 5.1)
       continue;
     matrixDummy.position.set(x, getTerrainHeight(x, z) + 0.025, z);
@@ -315,8 +321,25 @@ export function createVegetation(context: WorldRenderContext) {
     [1, 34],
     [-8, -15],
   ];
+  if (region === 'meadow')
+    flowerCenters.push(
+      [-72, 43],
+      [-48, 58],
+      [22, 80],
+      [62, 48],
+      [78, 45],
+      [87, 51],
+      [66, 64],
+      [-14, -76],
+      [22, -73],
+    );
   let flowerCount = 0;
-  for (let i = 0; i < 750 && flowerCount < 650; i++) {
+  const flowerLimit = region === 'meadow' ? 1400 : 650;
+  for (
+    let i = 0;
+    i < (region === 'meadow' ? flowerLimit * 1.25 : 750) && flowerCount < flowerLimit;
+    i++
+  ) {
     const center = flowerCenters[i % flowerCenters.length];
     const angle = random() * Math.PI * 2,
       radius = Math.sqrt(random()) * 7;
@@ -332,12 +355,13 @@ export function createVegetation(context: WorldRenderContext) {
   }
   flowers.count = flowerCount;
   scene.add(flowers);
-  const rocks = new THREE.InstancedMesh(pebbleGeometry, stoneDark, 240);
+  const rockCount = region === 'meadow' ? 360 : 240;
+  const rocks = new THREE.InstancedMesh(pebbleGeometry, stoneDark, rockCount);
   rocks.castShadow = true;
   rocks.receiveShadow = true;
-  for (let i = 0; i < 240; i++) {
-    const x = (random() - 0.5) * 135,
-      z = (random() - 0.5) * 135;
+  for (let i = 0; i < rockCount; i++) {
+    const x = (random() - 0.5) * (region === 'meadow' ? 210 : 135),
+      z = (random() - 0.5) * (region === 'meadow' ? 210 : 135);
     const size = distanceToTrail(x, z) < 2 ? 0.08 : 0.22 + random() * 0.65;
     matrixDummy.position.set(x, getTerrainHeight(x, z) + size * 0.12, z);
     matrixDummy.rotation.set(random(), random(), random());

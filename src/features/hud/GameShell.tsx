@@ -152,7 +152,9 @@ export default function GameShell({ game }: { game: AdventureController }) {
           <kbd>空格</kbd> {flight.flying ? '上升' : '跳跃'}
         </span>
         <i />
-        <span>{flight.flying ? 'Shift / Ctrl 下降 · F 降落' : '拖拽视角 · 点击地面前往'}</span>
+        <span>
+          {flight.flying ? 'Shift / Ctrl 下降 · F 降落' : 'Shift 奔跑 · 拖拽视角 · 点击前往'}
+        </span>
       </div>
       <div className="world-tools" inert={isModal}>
         <button aria-label="我的伙伴" onClick={() => setPanel('journal')}>
