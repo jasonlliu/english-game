@@ -1,692 +1,543 @@
 import * as THREE from 'three';
 import { modelKit } from './modelKit';
 import { readLocomotion, sampleFootstep, solveLeg } from './locomotion';
+import { heroHairCap, heroLoft, type HeroSection } from './heroGeometry';
 import type { ModelRig, Point } from './types';
-/** Original six-head-tall sky ranger; the scene owns world position and rotation. */
+
+/** Original sunny young explorer. Forward is -Z; scene owns position and heading. */
 export function createHero(): ModelRig {
   const k = modelKit();
   try {
     const { group, rig, soft, material, pivot, tube, tapered, mesh } = k;
-    group.name = 'silver-tide-ranger';
-    const skin = material('#d9ab8b', { roughness: 0.74 });
-    const skinLight = material('#e4bea0', { roughness: 0.73 });
-    const navy = material('#19354e');
-    const blue = material('#315870');
-    const dark = material('#1a2639', { roughness: 0.86 });
-    const ivory = material('#e9e5d1', { side: THREE.DoubleSide, roughness: 0.84 });
-    const gold = material('#c5a974', { roughness: 0.4, metalness: 0.57 });
-    const leather = material('#4b4340', { roughness: 0.86 });
-    const steel = material('#7594a2', { metalness: 0.43, roughness: 0.42 });
-    const silverHair = material('#aebbc7', { roughness: 0.69 });
-    const hairShade = material('#6d8196', { roughness: 0.76 });
-    const hairLight = material('#d5dde1', { roughness: 0.68 });
-    const teal = material('#69c8cc', {
-      emissive: '#30868e',
-      emissiveIntensity: 0.2,
-      roughness: 0.34,
-    });
-    const cloakMaterial = material('#24465f', { side: THREE.DoubleSide, roughness: 0.88 });
-    // Lofted anatomical and tailored cross-sections replace the old capsule stacks.
-    type Section = [number, number, number, number]; // height, half-width, half-depth, depth offset
-    function profile(
+    group.name = 'sunny-young-explorer';
+    const cloth = (color: string) => material(color, { roughness: 0.88, metalness: 0 });
+    const skin = material('#edb48b', { roughness: 0.76, metalness: 0 });
+    const cheek = material('#db9279', { roughness: 0.79, metalness: 0 });
+    const blue = cloth('#387eb6'),
+      blueLight = cloth('#629dca'),
+      blueDark = cloth('#28537e');
+    const navy = cloth('#303d56'),
+      navyLight = cloth('#41516b'),
+      ivory = cloth('#f5efdf');
+    const yellow = cloth('#e7ad47'),
+      yellowLight = cloth('#f4c66c'),
+      ochre = cloth('#b87933');
+    const strapMaterial = cloth('#79573c'),
+      soleMaterial = cloth('#343c49');
+    const hair = material('#4c3227', { roughness: 0.73, metalness: 0 });
+    const hairLight = material('#654331', { roughness: 0.72, metalness: 0 });
+    const hairDark = cloth('#362921');
+    const ink = material('#32251f', { roughness: 0.64, metalness: 0 });
+    const white = material('#fff9eb', { side: THREE.DoubleSide, roughness: 0.32, metalness: 0 });
+    const iris = material('#936038', { roughness: 0.4, metalness: 0 });
+    const shine = material('#ffffff', { emissive: '#ffffff', emissiveIntensity: 0.35 });
+    const profile = (
       parent: THREE.Object3D,
       mat: THREE.Material,
-      sections: Section[],
-      radial = 24,
-    ) {
-      const segments = Math.max(16, (sections.length - 1) * 4);
-      const vertices: number[] = [];
-      const indices: number[] = [];
-      const cubic = (a: number, b: number, c: number, d: number, t: number) =>
-        0.5 *
-        (2 * b +
-          (-a + c) * t +
-          (2 * a - 5 * b + 4 * c - d) * t * t +
-          (-a + 3 * b - 3 * c + d) * t * t * t);
-      for (let i = 0; i <= segments; i += 1) {
-        const at = (i / segments) * (sections.length - 1);
-        const n = Math.min(Math.floor(at), sections.length - 2);
-        const f = at - n;
-        const a = sections[Math.max(0, n - 1)];
-        const b = sections[n];
-        const c = sections[n + 1];
-        const d = sections[Math.min(sections.length - 1, n + 2)];
-        const y = THREE.MathUtils.lerp(b[0], c[0], f);
-        const w = Math.max(0.003, cubic(a[1], b[1], c[1], d[1], f));
-        const depth = Math.max(0.003, cubic(a[2], b[2], c[2], d[2], f));
-        const z = cubic(a[3], b[3], c[3], d[3], f);
-        for (let j = 0; j <= radial; j += 1) {
-          const angle = (j / radial) * Math.PI * 2;
-          vertices.push(Math.sin(angle) * w, y, Math.cos(angle) * depth + z);
-          if (i < segments && j < radial) {
-            const v = i * (radial + 1) + j;
-            indices.push(v, v + 1, v + radial + 1, v + 1, v + radial + 2, v + radial + 1);
-          }
-        }
-      }
-      for (const [row, section, reverse] of [
-        [0, sections[0], true],
-        [segments, sections[sections.length - 1], false],
-      ] as const) {
-        const center = vertices.length / 3;
-        vertices.push(0, section[0], section[3]);
-        for (let j = 0; j < radial; j += 1) {
-          const a = row * (radial + 1) + j;
-          indices.push(center, reverse ? a + 1 : a, reverse ? a : a + 1);
-        }
-      }
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-      geometry.setIndex(indices);
-      geometry.computeVertexNormals();
-      return mesh(parent, geometry, mat);
-    }
-    function panel(
+      sections: HeroSection[],
+      options: Parameters<typeof heroLoft>[1] = {},
+    ) => mesh(parent, heroLoft(sections, options), mat);
+    const outline = (
       parent: THREE.Object3D,
       mat: THREE.Material,
-      points: Array<[number, number]>,
-      z: number,
-      depth = 0.012,
-    ) {
-      const shape = new THREE.Shape();
-      points.forEach(([x, y], i) => (i === 0 ? shape.moveTo(x, y) : shape.lineTo(x, y)));
-      shape.closePath();
-      return mesh(
-        parent,
-        new THREE.ExtrudeGeometry(shape, {
-          depth,
-          bevelEnabled: true,
-          bevelThickness: 0.008,
-          bevelSize: 0.009,
-          bevelSegments: 2,
-          curveSegments: 8,
-        }),
-        mat,
-        [0, 0, z],
-      );
-    }
-    const hipShell = profile(rig, dark, [
-      [1.34, 0.23, 0.125, 0.015],
-      [1.44, 0.26, 0.146, 0.012],
-      [1.58, 0.235, 0.138, 0],
+      shape: THREE.Shape,
+      point: Point,
+    ) => mesh(parent, new THREE.ShapeGeometry(shape, 18), mat, point);
+
+    const hipShell = profile(rig, navy, [
+      [1.34, 0.23, 0.126, 0.014],
+      [1.44, 0.267, 0.148, 0.014],
+      [1.56, 0.24, 0.14, 0],
     ]);
-    profile(rig, navy, [
-      [1.48, 0.265, 0.15, 0],
-      [1.64, 0.238, 0.145, 0],
-      [1.9, 0.295, 0.164, 0.002],
-      [2.12, 0.351, 0.151, 0.004],
-      [2.22, 0.285, 0.124, 0.008],
+    hipShell.name = 'hero-shorts-waist';
+    profile(rig, ivory, [
+      [1.46, 0.272, 0.158, 0],
+      [1.55, 0.275, 0.164, 0],
+      [1.8, 0.268, 0.153, 0],
+      [2.08, 0.316, 0.156, 0.001],
+      [2.17, 0.272, 0.124, 0],
     ]);
+    const jacketSections: HeroSection[] = [
+      [1.49, 0.294, 0.181, 0],
+      [1.58, 0.288, 0.181, 0],
+      [1.79, 0.284, 0.176, 0.004],
+      [2.02, 0.337, 0.177, 0.004],
+      [2.15, 0.358, 0.16, 0.006],
+      [2.21, 0.282, 0.121, 0.012],
+    ];
+    blue.side = THREE.DoubleSide;
+    const jacket = profile(rig, blue, jacketSections, { gap: 0.34 });
+    jacket.name = 'hero-blue-short-jacket';
     profile(rig, skin, [
-      [2.18, 0.078, 0.072, 0],
-      [2.34, 0.074, 0.072, 0],
-      [2.43, 0.081, 0.075, 0],
+      [2.14, 0.084, 0.077, 0.005],
+      [2.27, 0.088, 0.081, 0.002],
+      [2.39, 0.097, 0.081, 0.002],
     ]);
-    panel(
+    tube(
       rig,
       ivory,
       [
-        [-0.115, 2.19],
-        [0.115, 2.19],
-        [0.066, 1.78],
-        [-0.067, 1.78],
+        [-0.123, 2.164, -0.11],
+        [0, 2.118, -0.16],
+        [0.123, 2.164, -0.11],
       ],
-      -0.171,
+      0.018,
     );
     for (const side of [-1, 1]) {
-      panel(
+      tube(
         rig,
-        blue,
-        [
-          [side * 0.11, 2.21],
-          [side * 0.27, 2.18],
-          [side * 0.2, 1.97],
-          [side * 0.105, 2.04],
-        ],
-        -0.155,
+        yellow,
+        jacketSections.map(
+          ([y, w, d, z]): Point => [side * Math.sin(0.34) * w, y, -Math.cos(0.34) * d + z - 0.004],
+        ),
+        0.008,
       );
       tube(
         rig,
-        gold,
+        blueLight,
         [
-          [side * 0.12, 2.22, -0.17],
-          [side * 0.213, 2.07, -0.18],
-          [side * 0.17, 1.82, -0.164],
-          [side * 0.2, 1.55, -0.154],
+          [side * 0.195, 1.56, -0.14],
+          [side * 0.248, 1.66, -0.104],
+          [side * 0.25, 1.71, -0.099],
+        ],
+        0.017,
+      );
+      tube(
+        rig,
+        blueDark,
+        [
+          [side * 0.13, 1.515, -0.166],
+          [side * 0.256, 1.515, -0.093],
+          [side * 0.29, 1.515, 0.045],
+        ],
+        0.016,
+      );
+    }
+
+    // A folded hood frames the face; its warm lining is readable from the usual back view.
+    const hood = profile(rig, yellow, [
+      [2.04, 0.087, 0.035, 0.16],
+      [2.12, 0.205, 0.094, 0.142],
+      [2.235, 0.272, 0.122, 0.106],
+      [2.3, 0.222, 0.079, 0.079],
+    ]);
+    hood.name = 'hero-yellow-hood';
+    tube(
+      rig,
+      yellowLight,
+      [
+        [-0.249, 2.245, 0.057],
+        [-0.178, 2.291, 0.137],
+        [0, 2.29, 0.171],
+        [0.178, 2.291, 0.137],
+        [0.249, 2.245, 0.057],
+      ],
+      0.026,
+    );
+    for (const side of [-1, 1])
+      tapered(
+        rig,
+        yellowLight,
+        [
+          [side * 0.225, 2.266, 0.058],
+          [side * 0.174, 2.205, -0.063],
+          [side * 0.122, 2.122, -0.15],
+        ],
+        [0.045, 0.04, 0.016],
+        0.4,
+      );
+
+    const backpack = pivot(rig, [0, 0, 0]);
+    backpack.name = 'hero-explorer-backpack';
+    profile(
+      backpack,
+      ochre,
+      [
+        [1.59, 0.18, 0.072, 0.246],
+        [1.65, 0.256, 0.118, 0.259],
+        [2.02, 0.255, 0.117, 0.25],
+        [2.145, 0.178, 0.07, 0.237],
+      ],
+      { square: 0.62 },
+    );
+    profile(
+      backpack,
+      yellow,
+      [
+        [1.615, 0.174, 0.069, 0.264],
+        [1.69, 0.237, 0.102, 0.28],
+        [2.006, 0.236, 0.102, 0.272],
+        [2.122, 0.169, 0.065, 0.25],
+      ],
+      { square: 0.62 },
+    );
+    profile(
+      backpack,
+      yellowLight,
+      [
+        [1.668, 0.128, 0.016, 0.383],
+        [1.713, 0.197, 0.03, 0.384],
+        [1.965, 0.196, 0.025, 0.381],
+        [2.004, 0.138, 0.013, 0.372],
+      ],
+      { square: 0.52 },
+    );
+    tube(
+      backpack,
+      ochre,
+      [
+        [-0.187, 1.728, 0.401],
+        [-0.187, 1.94, 0.399],
+        [0, 1.991, 0.394],
+        [0.187, 1.94, 0.399],
+        [0.187, 1.728, 0.401],
+      ],
+      0.008,
+    );
+    const sunShape = new THREE.Shape();
+    for (let i = 0; i < 32; i++) {
+      const angle = (i / 32) * Math.PI * 2;
+      const radius = i % 4 === 0 ? 0.081 : i % 2 === 0 ? 0.051 : 0.048;
+      const x = Math.sin(angle) * radius,
+        y = Math.cos(angle) * radius;
+      if (i === 0) sunShape.moveTo(x, y);
+      else sunShape.lineTo(x, y);
+    }
+    sunShape.closePath();
+    const sunHole = new THREE.Path();
+    sunHole.absarc(0, 0, 0.027, 0, Math.PI * 2, true);
+    sunShape.holes.push(sunHole);
+    const badge = outline(backpack, blueDark, sunShape, [0, 1.844, 0.42]);
+    badge.name = 'hero-sun-emblem';
+    for (const side of [-1, 1]) {
+      tube(
+        rig,
+        strapMaterial,
+        [
+          [side * 0.222, 1.64, 0.235],
+          [side * 0.25, 2.055, 0.157],
+          [side * 0.253, 2.195, 0.012],
+          [side * 0.243, 2.055, -0.143],
+          [side * 0.2, 1.73, -0.153],
+        ],
+        0.031,
+      );
+      tube(
+        rig,
+        ochre,
+        [
+          [side * 0.253, 2.166, -0.069],
+          [side * 0.243, 2.046, -0.173],
+          [side * 0.21, 1.817, -0.182],
         ],
         0.009,
       );
-      panel(
-        rig,
-        navy,
-        [
-          [side * 0.12, 1.59],
-          [side * 0.27, 1.59],
-          [side * 0.29, 1.32],
-          [side * 0.17, 1.36],
-        ],
-        -0.135,
-      );
     }
-    // A slim cross-body strap and structured hip pouch remain readable from behind.
-    tube(
-      rig,
-      leather,
-      [
-        [-0.23, 2.2, -0.085],
-        [-0.13, 2.0, -0.192],
-        [0.025, 1.78, -0.18],
-        [0.18, 1.54, -0.157],
-      ],
-      0.027,
-    );
-    tube(
-      rig,
-      leather,
-      [
-        [-0.23, 2.2, 0.09],
-        [-0.07, 1.99, 0.181],
-        [0.18, 1.54, 0.164],
-      ],
-      0.028,
-    );
-    profile(rig, leather, [
-      [1.465, 0.274, 0.158, 0],
-      [1.527, 0.266, 0.157, 0],
-    ]);
-    panel(
-      rig,
-      gold,
-      [
-        [-0.049, 1.54],
-        [0.047, 1.54],
-        [0.047, 1.462],
-        [-0.049, 1.462],
-      ],
-      -0.169,
-    );
-    panel(
-      rig,
-      navy,
-      [
-        [-0.026, 1.522],
-        [0.026, 1.522],
-        [0.026, 1.479],
-        [-0.026, 1.479],
-      ],
-      -0.182,
-    );
-    const pouch = pivot(rig, [-0.29, 1.43, 0.02]);
-    pouch.rotation.z = 0.09;
-    profile(pouch, leather, [
-      [-0.17, 0.083, 0.068, 0],
-      [-0.11, 0.1, 0.073, 0],
-      [0.1, 0.098, 0.071, 0],
-      [0.14, 0.074, 0.053, 0],
-    ]);
-    panel(
-      pouch,
-      gold,
-      [
-        [-0.026, 0.079],
-        [0.026, 0.079],
-        [0.021, 0.02],
-        [-0.021, 0.02],
-      ],
-      -0.079,
-      0.006,
-    );
-    const head = pivot(rig, [0, 2.585, -0.014]);
-    profile(
+
+    // Broad cheeks taper into a small chin; nose and muzzle share a continuous surface.
+    const head = pivot(rig, [0, 2.594, -0.006]);
+    head.name = 'hero-head';
+    const face = profile(
       head,
-      skinLight,
+      skin,
       [
-        [-0.212, 0.047, 0.053, -0.026],
-        [-0.166, 0.111, 0.088, -0.02],
-        [-0.067, 0.165, 0.123, -0.009],
-        [0.026, 0.185, 0.139, 0],
-        [0.109, 0.18, 0.132, 0.012],
-        [0.173, 0.144, 0.11, 0.018],
-        [0.204, 0.072, 0.052, 0.02],
+        [-0.274, 0.04, 0.054, -0.015],
+        [-0.24, 0.105, 0.098, -0.006],
+        [-0.167, 0.181, 0.137, 0.005],
+        [-0.065, 0.23, 0.166, 0.013],
+        [0.043, 0.244, 0.175, 0.012],
+        [0.154, 0.229, 0.165, 0.018],
+        [0.229, 0.174, 0.129, 0.024],
+        [0.27, 0.061, 0.048, 0.021],
       ],
-      28,
+      { radial: 40, face: true },
     );
-    const eyeWhite = material('#e1e5df', { side: THREE.DoubleSide, roughness: 0.28 });
-    const eyeIris = material('#4f929c', { roughness: 0.19 });
-    const ink = material('#263244', { roughness: 0.45 });
-    const shine = material('#ffffff', { emissive: '#ffffff', emissiveIntensity: 0.28 });
+    face.name = 'hero-sculpted-face';
     const eyes: THREE.Group[] = [];
     for (const side of [-1, 1]) {
-      const eye = pivot(head, [side * 0.081, 0.029, -0.131]);
-      eye.rotation.y = side * -0.19;
-      const outline = new THREE.Shape();
-      outline.moveTo(-0.055, -0.002);
-      outline.quadraticCurveTo(-0.003, 0.034, 0.055, 0.001);
-      outline.quadraticCurveTo(0, -0.027, -0.055, -0.002);
-      mesh(eye, new THREE.ShapeGeometry(outline, 12), eyeWhite);
-      soft(eye, eyeIris, [0, 0, -0.006], [0.019, 0.022, 0.01], true);
-      soft(eye, ink, [0, 0, -0.013], [0.009, 0.016, 0.008], true);
-      soft(eye, shine, [-0.006, 0.011, -0.02], [0.005, 0.006, 0.004], true);
+      const eye = pivot(head, [side * 0.108, 0.003, -0.158]);
+      eye.rotation.y = side * -0.2;
+      const almond = new THREE.Shape();
+      almond.moveTo(-0.058, -0.002);
+      almond.bezierCurveTo(-0.05, 0.053, 0.041, 0.055, 0.061, 0.006);
+      almond.bezierCurveTo(0.04, -0.04, -0.043, -0.043, -0.058, -0.002);
+      outline(eye, white, almond, [0, 0, 0]);
+      soft(eye, iris, [side * -0.005, 0.004, -0.008], [0.031, 0.041, 0.009], true);
+      soft(eye, ink, [side * -0.005, 0.004, -0.015], [0.019, 0.032, 0.006], true);
+      soft(eye, shine, [-0.012, 0.025, -0.022], [0.01, 0.011, 0.004], true);
       tube(
         eye,
         ink,
         [
-          [-0.057, 0.001, -0.006],
-          [-0.011, 0.022, -0.005],
-          [0.052, 0.005, -0.006],
+          [-0.059, -0.001, -0.004],
+          [-0.04, 0.035, -0.005],
+          [0.006, 0.044, -0.005],
+          [0.046, 0.028, -0.005],
+          [0.06, 0.007, -0.004],
         ],
-        0.0045,
+        0.006,
       );
       eyes.push(eye);
       tapered(
         head,
-        dark,
+        hairDark,
         [
-          [side * 0.032, 0.077, -0.143],
-          [side * 0.079, 0.084, -0.142],
-          [side * 0.14, 0.078, -0.109],
+          [side * 0.052, 0.083, -0.16],
+          [side * 0.097, 0.099, -0.155],
+          [side * 0.164, 0.075, -0.128],
         ],
-        [0.008, 0.01, 0.003],
-        0.6,
+        [0.007, 0.011, 0.003],
+        0.62,
       );
-      soft(head, skin, [side * 0.185, -0.016, 0.015], [0.031, 0.06, 0.036], true);
-      tapered(
-        head,
-        dark,
-        [
-          [side * 0.179, 0.117, 0.004],
-          [side * 0.189, 0.04, 0.018],
-          [side * 0.17, -0.047, -0.008],
-        ],
-        [0.033, 0.021, 0.003],
-        0.45,
-      );
+      soft(head, skin, [side * 0.235, -0.045, 0.02], [0.047, 0.077, 0.045], true);
+      soft(head, cheek, [side * 0.257, -0.047, -0.009], [0.022, 0.043, 0.022], true);
     }
-    const noseGeometry = new THREE.BufferGeometry();
-    noseGeometry.setAttribute(
-      'position',
-      new THREE.Float32BufferAttribute(
-        [
-          0, 0.064, -0.137, -0.022, -0.047, -0.136, 0.022, -0.047, -0.136, 0, -0.045, -0.19, -0.018,
-          -0.068, -0.155, 0.018, -0.068, -0.155, 0, -0.076, -0.161,
-        ],
-        3,
-      ),
-    );
-    noseGeometry.setIndex([0, 3, 1, 0, 2, 3, 1, 3, 4, 3, 2, 5, 4, 3, 6, 3, 5, 6]);
-    noseGeometry.computeVertexNormals();
-    mesh(head, noseGeometry, skin);
-    tube(
+    const smile = new THREE.Shape();
+    smile.moveTo(-0.071, -0.121);
+    smile.quadraticCurveTo(0, -0.151, 0.071, -0.121);
+    smile.quadraticCurveTo(0.045, -0.172, 0, -0.171);
+    smile.quadraticCurveTo(-0.041, -0.169, -0.071, -0.121);
+    const mouth = outline(
       head,
-      material('#ab7d68'),
-      [
-        [-0.042, -0.112, -0.133],
-        [0, -0.116, -0.146],
-        [0.041, -0.109, -0.132],
-      ],
-      0.0035,
+      material('#753f30', { side: THREE.DoubleSide, roughness: 0.8 }),
+      smile,
+      [0, 0, -0.162],
     );
-    // Swept silver locks have a dark undercut and a deliberate asymmetric fringe.
-    soft(head, dark, [0, 0.122, 0.044], [0.19, 0.139, 0.15]);
-    for (let i = 0; i < 8; i += 1) {
-      const x = -0.145 + i * 0.04;
-      const tipY = i < 4 ? 0.1 - i * 0.027 : 0.055 + (i - 4) * 0.023;
+    mouth.name = 'hero-friendly-smile';
+    const teeth = new THREE.Shape();
+    teeth.moveTo(-0.052, -0.131);
+    teeth.quadraticCurveTo(0, -0.147, 0.052, -0.131);
+    teeth.quadraticCurveTo(0.042, -0.149, 0, -0.15);
+    teeth.quadraticCurveTo(-0.043, -0.148, -0.052, -0.131);
+    outline(head, white, teeth, [0, 0, -0.165]);
+
+    const hairCap = mesh(head, heroHairCap(), hair);
+    hairCap.name = 'hero-chestnut-hair';
+    // Broad swept locks overlap the cap; the lifted fringe keeps both eyes clear.
+    for (let i = 0; i < 7; i++) {
+      const x = -0.195 + i * 0.062;
+      const fringe = [0.014, 0.036, 0.08, 0.116, 0.132, 0.071, 0.017][i];
       tapered(
         head,
-        i === 2 || i === 6 ? hairShade : silverHair,
+        i === 2 || i === 5 ? hairLight : hair,
         [
-          [x - 0.039, 0.232 - Math.abs(x) * 0.15, 0.047],
-          [x + 0.005, 0.19, -0.065],
-          [x + 0.04, tipY + 0.025, -0.147],
-          [x + 0.03, tipY - 0.031, -0.145],
+          [x - 0.055, 0.277 - Math.abs(x) * 0.23, 0.044],
+          [x - 0.033, 0.244, -0.114],
+          [x + 0.012, fringe + 0.058, -0.184],
+          [x + 0.031, fringe, -0.169],
         ],
-        [0.046, 0.046, 0.03, 0.0025],
-        0.36,
+        [0.071, 0.073, 0.04, 0.002],
+        0.32,
       );
     }
     for (const side of [-1, 1]) {
-      for (let i = 0; i < 3; i += 1) {
+      for (let i = 0; i < 3; i++)
         tapered(
           head,
-          i === 0 ? hairLight : silverHair,
+          i === 1 ? hairLight : hair,
           [
-            [side * (0.034 + i * 0.045), 0.218, 0.06],
-            [side * (0.11 + i * 0.029), 0.12, 0.13],
-            [side * (0.088 + i * 0.038), -0.045 - i * 0.02, 0.133],
+            [side * (0.098 + i * 0.048), 0.243 - i * 0.023, 0.105],
+            [side * (0.227 + i * 0.018), 0.109 - i * 0.01, 0.101 - i * 0.047],
+            [side * (0.279 - i * 0.018), -0.019 - i * 0.025, 0.083 - i * 0.055],
+            [side * (0.246 - i * 0.024), -0.098 - i * 0.011, 0.08 - i * 0.053],
           ],
-          [0.046, 0.043, 0.003],
+          [0.065, 0.061, 0.032, 0.002],
           0.36,
         );
-      }
+      tapered(
+        head,
+        hair,
+        [
+          [side * 0.09, 0.2, 0.18],
+          [side * 0.172, 0.073, 0.227],
+          [side * 0.154, -0.109, 0.191],
+        ],
+        [0.073, 0.065, 0.002],
+        0.4,
+      );
     }
     tapered(
       head,
       hairLight,
       [
-        [-0.1, 0.206, 0.087],
-        [-0.032, 0.25, 0.024],
-        [0.077, 0.216, -0.03],
+        [-0.169, 0.259, 0.089],
+        [-0.054, 0.35, 0.044],
+        [0.086, 0.33, -0.02],
+        [0.151, 0.262, -0.085],
       ],
-      [0.023, 0.033, 0.003],
-      0.4,
+      [0.049, 0.066, 0.047, 0.002],
+      0.32,
     );
-    const earring = mesh(
+    tapered(
       head,
-      new THREE.TorusGeometry(0.019, 0.004, 6, 16),
-      gold,
-      [-0.191, -0.066, 0.012],
-    );
-    earring.rotation.y = Math.PI / 2;
-    // Layered high collar and two long scarf ribbons frame the head from the back.
-    profile(rig, ivory, [
-      [2.232, 0.132, 0.101, -0.008],
-      [2.288, 0.146, 0.111, -0.014],
-      [2.35, 0.105, 0.083, -0.005],
-    ]);
-    panel(
-      rig,
-      gold,
+      hair,
       [
-        [-0.153, 2.254],
-        [-0.089, 2.274],
-        [-0.07, 2.216],
-        [-0.123, 2.199],
+        [-0.11, 0.241, 0.115],
+        [-0.18, 0.306, 0.087],
+        [-0.22, 0.37, 0.06],
       ],
-      -0.111,
+      [0.06, 0.05, 0.002],
+      0.32,
     );
-    mesh(
-      rig,
-      new THREE.OctahedronGeometry(0.035),
-      teal,
-      [-0.115, 2.238, -0.135],
-      [0.76, 1.0, 0.35],
-    );
-    const scarf = pivot(rig, [-0.09, 2.29, 0.09]);
-    function ribbon(offset: number, length: number, width: number) {
-      const geometry = new THREE.PlaneGeometry(1, 1, 18, 2);
-      const positions = geometry.getAttribute('position');
-      for (let i = 0; i < positions.count; i += 1) {
-        const t = positions.getX(i) + 0.5;
-        const w = positions.getY(i) * width * (1 - t * 0.36);
-        positions.setXYZ(
-          i,
-          -t * length + offset,
-          -t * 0.26 + Math.sin(t * Math.PI) * 0.085 + w,
-          t * 0.39 + Math.sin(t * Math.PI * 1.3) * 0.043,
-        );
-      }
-      geometry.computeVertexNormals();
-      mesh(scarf, geometry, ivory);
-    }
-    ribbon(0, 0.59, 0.12);
-    ribbon(0.06, 0.47, 0.075);
-    const legPivots: THREE.Group[] = [];
-    const knees: THREE.Group[] = [];
-    const ankles: THREE.Group[] = [];
-    const armPivots: THREE.Group[] = [];
-    const elbows: THREE.Group[] = [];
+
+    const legPivots: THREE.Group[] = [],
+      knees: THREE.Group[] = [],
+      ankles: THREE.Group[] = [];
+    const armPivots: THREE.Group[] = [],
+      elbows: THREE.Group[] = [];
     for (const side of [-1, 1]) {
       const leg = pivot(rig, [side * 0.145, 1.46, 0.01]);
       leg.name = `hero-hip-${side}`;
-      profile(leg, dark, [
-        [-0.695, 0.087, 0.086, 0],
-        [-0.55, 0.098, 0.102, 0.008],
-        [-0.26, 0.124, 0.13, 0.012],
-        [0.045, 0.124, 0.132, 0],
-      ]);
+      profile(
+        leg,
+        navy,
+        [
+          [-0.695, 0.118, 0.117, 0],
+          [-0.59, 0.122, 0.128, 0.009],
+          [-0.31, 0.133, 0.142, 0.013],
+          [0.041, 0.128, 0.139, 0],
+        ],
+        { square: 0.83 },
+      );
+      profile(
+        leg,
+        navyLight,
+        [
+          [-0.706, 0.123, 0.12, 0],
+          [-0.661, 0.123, 0.123, 0.001],
+        ],
+        { square: 0.86 },
+      );
       tube(
         leg,
-        blue,
+        navyLight,
         [
-          [side * 0.122, -0.07, 0.014],
-          [side * 0.122, -0.28, 0.01],
-          [side * 0.091, -0.59, 0],
-        ],
-        0.01,
-      );
-      const knee = pivot(leg, [0, -0.69, 0]);
-      knee.name = `hero-knee-${side}`;
-      profile(knee, dark, [
-        [-0.5, 0.065, 0.081, 0.018],
-        [-0.3, 0.086, 0.091, 0.029],
-        [-0.1, 0.094, 0.094, 0.02],
-        [0.038, 0.091, 0.087, 0],
-      ]);
-      profile(knee, leather, [
-        [-0.705, 0.092, 0.14, -0.013],
-        [-0.51, 0.082, 0.105, 0.012],
-        [-0.27, 0.097, 0.108, 0.018],
-        [-0.225, 0.103, 0.111, 0.018],
-      ]);
-      const ankle = pivot(knee, [0, -0.6, 0]);
-      ankle.name = `hero-ankle-${side}`;
-      profile(ankle, navy, [
-        [-0.139, 0.108, 0.211, -0.072],
-        [-0.06, 0.108, 0.205, -0.072],
-        [0.024, 0.087, 0.126, -0.015],
-      ]);
-      profile(ankle, dark, [
-        [-0.17, 0.112, 0.22, -0.07],
-        [-0.132, 0.113, 0.22, -0.07],
-      ]);
-      panel(
-        knee,
-        steel,
-        [
-          [-0.075, 0.035],
-          [0.076, 0.035],
-          [0.082, -0.092],
-          [0, -0.15],
-          [-0.08, -0.09],
-        ],
-        -0.104,
-      );
-      tube(
-        knee,
-        gold,
-        [
-          [-0.077, -0.248, -0.054],
-          [0, -0.247, -0.096],
-          [0.077, -0.248, -0.054],
+          [side * 0.122, -0.193, -0.055],
+          [side * 0.137, -0.3, -0.041],
+          [side * 0.125, -0.503, -0.061],
         ],
         0.009,
       );
-      tube(
-        knee,
-        gold,
+      const knee = pivot(leg, [0, -0.69, 0]);
+      knee.name = `hero-knee-${side}`;
+      profile(knee, skin, [
+        [-0.538, 0.063, 0.069, 0.003],
+        [-0.4, 0.077, 0.081, 0.016],
+        [-0.22, 0.097, 0.091, 0.026],
+        [-0.05, 0.1, 0.094, 0.002],
+        [0.054, 0.103, 0.09, -0.001],
+      ]);
+      profile(knee, ivory, [
+        [-0.618, 0.075, 0.079, 0],
+        [-0.49, 0.075, 0.08, 0.01],
+        [-0.43, 0.081, 0.085, 0.014],
+      ]);
+      profile(knee, blue, [
+        [-0.461, 0.081, 0.085, 0.012],
+        [-0.436, 0.082, 0.086, 0.014],
+      ]);
+      const ankle = pivot(knee, [0, -0.6, 0]);
+      ankle.name = `hero-ankle-${side}`;
+      profile(
+        ankle,
+        ivory,
         [
-          [-0.079, -0.54, -0.1],
-          [0, -0.57, -0.15],
-          [0.079, -0.54, -0.1],
+          [-0.135, 0.111, 0.208, -0.073],
+          [-0.071, 0.113, 0.206, -0.074],
+          [0.028, 0.096, 0.144, -0.021],
+          [0.074, 0.075, 0.084, 0.004],
         ],
-        0.007,
+        { square: 0.84 },
       );
+      profile(
+        ankle,
+        soleMaterial,
+        [
+          [-0.17, 0.112, 0.213, -0.071],
+          [-0.144, 0.116, 0.216, -0.071],
+        ],
+        { square: 0.8 },
+      );
+      profile(
+        ankle,
+        ivory,
+        [
+          [-0.145, 0.117, 0.216, -0.071],
+          [-0.114, 0.115, 0.214, -0.071],
+        ],
+        { square: 0.81 },
+      );
+      tapered(
+        ankle,
+        blue,
+        [
+          [side * 0.077, 0.048, 0.06],
+          [side * 0.114, -0.037, -0.052],
+          [side * 0.078, -0.068, -0.166],
+        ],
+        [0.025, 0.027, 0.018],
+        0.32,
+      );
+      for (let lace = 0; lace < 3; lace++)
+        tube(
+          ankle,
+          blueLight,
+          [
+            [-0.045, 0.034 - lace * 0.022, -0.078 - lace * 0.04],
+            [0, 0.043 - lace * 0.022, -0.084 - lace * 0.04],
+            [0.045, 0.034 - lace * 0.022, -0.078 - lace * 0.04],
+          ],
+          0.008,
+        );
       legPivots.push(leg);
       knees.push(knee);
       ankles.push(ankle);
-      const arm = pivot(rig, [side * 0.342, 2.16, 0.006]);
+      const arm = pivot(rig, [side * 0.342, 2.145, 0.006]);
       arm.name = `hero-shoulder-${side}`;
-      profile(arm, navy, [
-        [-0.385, 0.081, 0.086, 0],
-        [-0.26, 0.1, 0.105, 0.006],
-        [-0.09, 0.127, 0.126, 0.005],
-        [0.053, 0.113, 0.101, 0],
+      profile(arm, blue, [
+        [-0.344, 0.095, 0.103, 0],
+        [-0.26, 0.107, 0.11, 0.007],
+        [-0.104, 0.124, 0.126, 0.006],
+        [0.015, 0.119, 0.115, 0],
+        [0.085, 0.07, 0.074, 0],
+        [0.105, 0.008, 0.012, 0],
       ]);
-      const shoulder = panel(
-        arm,
-        gold,
-        [
-          [-0.112, 0.05],
-          [0.098, 0.08],
-          [0.143, -0.095],
-          [0.091, -0.18],
-          [-0.108, -0.145],
-        ],
-        -0.107,
-        0.022,
-      );
-      const inset = panel(
-        arm,
-        blue,
-        [
-          [-0.093, 0.032],
-          [0.085, 0.053],
-          [0.117, -0.091],
-          [0.075, -0.147],
-          [-0.09, -0.122],
-        ],
-        -0.124,
-        0.013,
-      );
-      shoulder.rotation.z = side * -0.14;
-      inset.rotation.z = side * -0.14;
+      profile(arm, blueLight, [
+        [-0.362, 0.105, 0.111, 0],
+        [-0.3, 0.11, 0.114, 0.001],
+      ]);
       const elbow = pivot(arm, [0, -0.36, 0]);
       elbow.name = `hero-elbow-${side}`;
-      profile(elbow, ivory, [
-        [-0.13, 0.065, 0.069, 0],
-        [0.029, 0.079, 0.08, 0],
+      profile(elbow, skin, [
+        [-0.292, 0.044, 0.05, -0.001],
+        [-0.16, 0.063, 0.065, 0.003],
+        [-0.045, 0.079, 0.075, 0],
+        [0.035, 0.085, 0.082, 0],
       ]);
-      profile(elbow, navy, [
-        [-0.31, 0.066, 0.068, 0],
-        [-0.16, 0.083, 0.078, 0],
-        [-0.095, 0.077, 0.075, 0],
-      ]);
-      panel(
+      profile(
         elbow,
-        steel,
+        skin,
         [
-          [-0.055, -0.13],
-          [0.055, -0.13],
-          [0.064, -0.27],
-          [0, -0.31],
-          [-0.064, -0.27],
+          [-0.421, 0.043, 0.029, -0.014],
+          [-0.374, 0.059, 0.042, -0.016],
+          [-0.323, 0.057, 0.043, -0.004],
+          [-0.273, 0.045, 0.043, 0],
         ],
-        -0.075,
+        { square: 0.78 },
       );
-      tube(
-        elbow,
-        gold,
-        [
-          [-0.056, -0.286, -0.046],
-          [0, -0.3, -0.079],
-          [0.056, -0.286, -0.046],
-        ],
-        0.007,
-      );
-      profile(elbow, leather, [
-        [-0.389, 0.057, 0.037, -0.008],
-        [-0.34, 0.066, 0.042, -0.006],
-        [-0.303, 0.055, 0.041, 0],
-      ]);
-      soft(elbow, skinLight, [0, -0.402, -0.007], [0.055, 0.043, 0.037], true);
-      soft(elbow, skin, [-side * 0.052, -0.362, -0.032], [0.02, 0.044, 0.023], true);
+      const thumb = soft(elbow, skin, [-side * 0.053, -0.351, -0.044], [0.022, 0.053, 0.026], true);
+      thumb.rotation.z = side * 0.35;
       armPivots.push(arm);
       elbows.push(elbow);
     }
-    // Flowing split half-cloak: a long left panel, shorter right panel, ivory piping.
-    const capes: THREE.Group[] = [];
-    for (const side of [-1, 1]) {
-      const height = side < 0 ? 1.15 : 0.95;
-      const cape = pivot(rig, [0, 2.19, 0.19]);
-      const geometry = new THREE.PlaneGeometry(1, 1, 12, 18);
-      const positions = geometry.getAttribute('position');
-      const surface = (u: number, v: number): Point => [
-        side * (THREE.MathUtils.lerp(0.005, 0.13, v * v) + u * (0.34 + v * 0.1)),
-        -height * v + Math.sin(u * Math.PI) * 0.045 * v,
-        0.045 + Math.sin(v * Math.PI) * 0.11 + v * 0.16 + Math.cos(u * Math.PI * 3) * v * 0.014,
-      ];
-      for (let i = 0; i < positions.count; i += 1)
-        positions.setXYZ(i, ...surface(positions.getX(i) + 0.5, 0.5 - positions.getY(i)));
-      geometry.computeVertexNormals();
-      mesh(cape, geometry, cloakMaterial);
-      const edge: Point[] = [];
-      const piping: Point[] = [];
-      for (let i = 0; i <= 20; i += 1) {
-        edge.push(surface(1, i / 20));
-        piping.push(surface(0.87, i / 20));
-      }
-      tube(cape, gold, edge, 0.01);
-      tube(cape, ivory, piping, 0.018);
-      const hem: Point[] = [];
-      for (let i = 0; i <= 12; i += 1) hem.push(surface(i / 12, 1));
-      tube(cape, gold, hem, 0.009);
-      capes.push(cape);
-    }
-    const backBadge = mesh(
-      rig,
-      new THREE.TorusGeometry(0.075, 0.009, 6, 4),
-      gold,
-      [0, 1.989, 0.285],
-      [0.76, 1.1, 1],
-    );
-    backBadge.rotation.z = Math.PI / 4;
-    tube(
-      rig,
-      gold,
-      [
-        [-0.15, 2.14, 0.222],
-        [0, 1.9, 0.306],
-        [0.15, 2.14, 0.222],
-      ],
-      0.008,
-    );
-    // A slim ceremonial scabbard is decorative; no weapon/attack behaviour is added.
-    const scabbard = pivot(rig, [0.275, 1.55, 0.245]);
-    scabbard.rotation.z = 0.22;
-    tapered(
-      scabbard,
-      navy,
-      [
-        [0, -0.025, 0],
-        [0.025, -0.4, 0.006],
-        [0.032, -0.88, 0.025],
-      ],
-      [0.048, 0.043, 0.017],
-      0.55,
-    );
-    tube(
-      scabbard,
-      gold,
-      [
-        [-0.03, -0.045, -0.03],
-        [-0.01, -0.43, -0.024],
-        [0.027, -0.84, 0],
-      ],
-      0.007,
-    );
-    profile(scabbard, gold, [
-      [-0.037, 0.059, 0.034, 0],
-      [0.018, 0.059, 0.034, 0],
-    ]);
-    tapered(
-      scabbard,
-      leather,
-      [
-        [0, 0.02, 0],
-        [0, 0.19, 0],
-        [0, 0.255, 0],
-      ],
-      [0.028, 0.028, 0.023],
-      0.82,
-    );
-    tube(
-      scabbard,
-      gold,
-      [
-        [-0.09, 0.032, 0],
-        [0, 0.055, 0],
-        [0.09, 0.032, 0],
-      ],
-      0.014,
-    );
-    soft(scabbard, teal, [0, 0.26, 0], [0.025, 0.039, 0.022], true);
-    // Separate the pelvis and upper body at the waist without changing the rest silhouette.
+
+    // Retain the planted-foot lengths and hip contract while changing the silhouette.
     const parts = [...rig.children];
     const hips = pivot(rig, [0, 1.46, 0]);
     hips.name = 'hero-pelvis';
     const chest = pivot(rig, [0, 1.46, 0]);
     chest.name = 'hero-chest';
-    const hipParts = new Set<THREE.Object3D>([hipShell, pouch, scabbard, ...legPivots]);
+    const hipParts = new Set<THREE.Object3D>([hipShell, ...legPivots]);
     for (const part of parts) {
       part.position.y -= 1.46;
       (hipParts.has(part) ? hips : chest).add(part);
@@ -704,9 +555,9 @@ export function createHero(): ModelRig {
         const pose = readLocomotion(time, speed, jump, motion);
         time = pose.time;
         jump = pose.jump;
-        const move = pose.weight * (1 - jump * 0.65);
-        const gait = pose.phase;
-        const run = pose.run;
+        const move = pose.weight * (1 - jump * 0.65),
+          gait = pose.phase,
+          run = pose.run;
         const bodyDrop = move * (-0.19 - run * 0.05 + Math.sin(gait) ** 2 * (0.1 + run * 0.02));
         rig.position.y = riding
           ? Math.sin(time * 3.5) * 0.006
@@ -715,11 +566,11 @@ export function createHero(): ModelRig {
         rig.rotation.z = 0;
         hips.rotation.y = riding ? 0 : Math.sin(gait) * move * (0.028 + run * 0.022);
         chest.rotation.y = riding ? 0 : -Math.sin(gait) * move * (0.035 + run * 0.035);
-        chest.rotation.x = riding ? 0 : -move * (0.025 + run * 0.16);
+        chest.rotation.x = riding ? -0.045 : -move * (0.025 + run * 0.16);
         chest.rotation.z = riding ? 0 : Math.sin(gait) * move * 0.012;
         legPivots.forEach((leg, index) => {
-          const side = index === 0 ? -1 : 1;
-          const reach = 0.624 + run * 0.079;
+          const side = index === 0 ? -1 : 1,
+            reach = 0.624 + run * 0.079;
           const step = sampleFootstep(
             gait + index * Math.PI,
             reach,
@@ -745,18 +596,9 @@ export function createHero(): ModelRig {
               move * (0.2 + run * 0.92) +
               Math.sin(gait + index * Math.PI) * move * run * 0.13;
         });
-        capes.forEach((cape, index) => {
-          cape.rotation.x =
-            -0.018 -
-            (riding
-              ? 0.3 + Math.sin(time * 5 + index) * 0.04
-              : move * (0.15 + Math.sin(gait + index) * 0.045));
-          cape.rotation.z = Math.sin(time * 1.8 + index) * (0.012 + move * 0.023);
-        });
-        scarf.rotation.x = Math.sin(time * 3.1) * 0.085 + (riding ? 0.2 : move * 0.11);
-        scarf.rotation.z = Math.sin(time * 2.4) * 0.06;
-        scabbard.rotation.x = riding ? -0.27 : Math.sin(gait) * move * 0.022;
+        backpack.rotation.x = riding ? 0.016 : Math.sin(gait * 2) * move * 0.008;
         head.rotation.y = Math.sin(time * 0.62) * 0.055 * (1 - move);
+        head.rotation.x = riding ? 0.065 : -Math.sin(gait * 2) * move * 0.012;
         const blink = (time + 0.2) % 5.7;
         eyes.forEach((eye) => {
           eye.scale.y = blink < 0.12 ? Math.max(0.06, Math.abs(blink - 0.06) / 0.06) : 1;
