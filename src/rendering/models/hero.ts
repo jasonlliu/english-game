@@ -11,8 +11,19 @@ export function createHero(): ModelRig {
     const { group, rig, soft, material, pivot, tube, tapered, mesh } = k;
     group.name = 'sunny-young-explorer';
     const cloth = (color: string) => material(color, { roughness: 0.88, metalness: 0 });
-    const skin = material('#edb48b', { roughness: 0.76, metalness: 0 });
-    const cheek = material('#db9279', { roughness: 0.79, metalness: 0 });
+    // A small warm fill keeps the child's expression readable when facing away from the sun.
+    const skin = material('#edb48b', {
+      roughness: 0.76,
+      metalness: 0,
+      emissive: '#edb48b',
+      emissiveIntensity: 0.11,
+    });
+    const cheek = material('#db9279', {
+      roughness: 0.79,
+      metalness: 0,
+      emissive: '#db9279',
+      emissiveIntensity: 0.06,
+    });
     const blue = cloth('#387eb6'),
       blueLight = cloth('#629dca'),
       blueDark = cloth('#28537e');
